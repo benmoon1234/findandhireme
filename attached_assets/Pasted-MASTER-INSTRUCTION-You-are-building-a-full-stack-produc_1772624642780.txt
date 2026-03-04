@@ -1,0 +1,1211 @@
+MASTER INSTRUCTION
+You are building a full-stack, production-grade web application called "Find and Hire Me" — a global job search and recruitment platform. Build the complete application from scratch inside this Replit workspace. Follow every instruction in this prompt precisely. Do not skip any section. Ask clarifying questions only if a requirement is genuinely ambiguous. Otherwise, proceed with best-practice implementations where specific libraries or approaches are not prescribed.
+
+SECTION 1 — PROJECT OVERVIEW & GOALS
+Build a multi-role, multi-region job aggregation and recruitment platform that:
+
+Allows job seekers to search, filter, save, and apply for jobs by keyword, skill, and location
+Allows employers and organisations to register, post jobs, and manage applicants
+Integrates third-party job aggregator APIs and RSS feeds with Pay-Per-Click (PPC) revenue tracking
+Delivers AI-powered CV parsing and job-to-candidate matching with automated email/push alerts
+Provides an admin panel for full platform management, moderation, and analytics
+Covers dedicated job search experiences for the United States, United Kingdom, Nigeria, and a Global / Remote catch-all
+Generates revenue through PPC aggregator partnerships, employer subscription tiers, and featured job listings
+
+
+SECTION 2 — TECH STACK
+Use the following technology stack. Do not deviate unless a listed tool is unavailable in the Replit environment, in which case use the closest equivalent and explain the substitution.
+Frontend
+
+Framework: Next.js 14 (App Router, React Server Components where appropriate)
+Styling: Tailwind CSS with a custom design system (no generic purple-gradient AI aesthetics)
+UI Components: shadcn/ui component library
+Maps: Mapbox GL JS (for interactive map job search view)
+Rich Text Editor: TipTap (for employer job description editing)
+Icons: Lucide React
+State Management: Zustand (global client state) + React Query / TanStack Query (server state, caching, API calls)
+Forms: React Hook Form + Zod (validation)
+Animations: Framer Motion (page transitions, micro-interactions)
+
+Backend
+
+Runtime: Node.js
+Framework: Next.js API Routes (for simple endpoints) + a dedicated Express.js or Fastify server for heavier microservices (aggregator ingestion, CV parsing, notifications)
+ORM: Prisma (with PostgreSQL)
+Authentication: NextAuth.js (OAuth 2.0 — Google + LinkedIn providers) + JWT refresh token rotation
+File Uploads: Multer (server-side) + AWS S3 SDK (storage) — or use Replit's object storage if S3 is unavailable
+Email: Nodemailer with SendGrid transport
+Push Notifications: Firebase Cloud Messaging (FCM)
+RSS Feed Parsing: rss-parser npm package
+Job Matching / CV Parsing: Use OpenAI API (GPT-4o) to extract structured data from uploaded CVs and perform semantic job-to-candidate matching scoring
+
+Database
+
+Primary: PostgreSQL (use Replit's built-in PostgreSQL or Neon serverless Postgres)
+Search: Use PostgreSQL full-text search with tsvector and tsquery as the primary search engine. If Elasticsearch is available, use it instead.
+Cache: Redis (use Upstash Redis for serverless compatibility with Replit)
+
+Infrastructure & Services
+
+Background Jobs: Use node-cron for scheduled tasks (aggregator feed polling, alert processing, backup triggers)
+Rate Limiting: express-rate-limit + Redis store
+Security: helmet.js, cors, express-validator, bcryptjs
+API Key Management: Store all secrets in Replit Secrets (environment variables). Never hardcode secrets.
+Payments: Stripe (for employer subscriptions and aggregator billing)
+
+
+SECTION 3 — DATABASE SCHEMA
+Using Prisma, create the following schema in prisma/schema.prisma. Generate and run migrations.
+prismamodel User {
+  id                String            @id @default(cuid())
+  email             String            @unique
+  hashedPassword    String?
+  name              String?
+  role              Role              @default(JOB_SEEKER)
+  emailVerified     DateTime?
+  image             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  lastLoginAt       DateTime?
+  isActive          Boolean           @default(true)
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean           @default(false)
+  jobSeekerProfile  JobSeekerProfile?
+  employer          Employer?
+  applications      Application[]
+  alerts            Alert[]
+  savedJobs         SavedJob[]
+  auditLogs         AuditLog[]
+  accounts          Account[]
+  sessions          Session[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  EMPLOYER
+  JOB_SEEKER
+  AGGREGATOR_PARTNER
+}
+
+model JobSeekerProfile {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id])
+  skills                String[]
+  preferredLocations    String[]
+  preferredCountries    String[]
+  preferredEmployment   String[]
+  salaryMin             Int?
+  salaryMax             Int?
+  cvUrl                 String?
+  cvFileName            String?
+  parsedCvData          Json?
+  alertFrequency        AlertFrequency @default(DAILY)
+  alertChannels         String[]
+  updatedAt             DateTime  @updatedAt
+}
+
+enum AlertFrequency {
+  REALTIME
+  DAILY
+  WEEKLY
+}
+
+model Employer {
+  id              String       @id @default(cuid())
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id])
+  companyName     String
+  slug            String       @unique
+  logoUrl         String?
+  bannerUrl       String?
+  description     String?
+  industry        String?
+  website         String?
+  location        String?
+  country         String?
+  verified        Boolean      @default(false)
+  verifiedAt      DateTime?
+  subscriptionTier SubscriptionTier @default(FREE)
+  stripeCustomerId String?
+  jobListings     JobListing[]
+  createdAt       DateTime     @default(now())
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
+model JobListing {
+  id               String          @id @default(cuid())
+  title            String
+  description      String
+  shortDescription String?
+  location         String
+  city             String?
+  state            String?
+  country          String          @default("GLOBAL")
+  lat              Float?
+  lng              Float?
+  salaryMin        Int?
+  salaryMax        Int?
+  salaryCurrency   String          @default("USD")
+  employmentType   EmploymentType  @default(FULL_TIME)
+  experienceLevel  ExperienceLevel @default(MID)
+  industry         String?
+  skills           String[]
+  isRemote         Boolean         @default(false)
+  isFeatured       Boolean         @default(false)
+  featuredUntil    DateTime?
+  status           JobStatus       @default(ACTIVE)
+  source           JobSource       @default(INTERNAL)
+  externalUrl      String?
+  trackingUrl      String?
+  employerId       String?
+  employer         Employer?       @relation(fields: [employerId], references: [id])
+  aggregatorId     String?
+  aggregator       AggregatorPartner? @relation(fields: [aggregatorId], references: [id])
+  postedAt         DateTime        @default(now())
+  expiresAt        DateTime?
+  viewCount        Int             @default(0)
+  clickCount       Int             @default(0)
+  applications     Application[]
+  clickEvents      ClickEvent[]
+  alerts           Alert[]
+  savedByUsers     SavedJob[]
+  searchVector     Unsupported("tsvector")?
+
+  @@index([country, status])
+  @@index([lat, lng])
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  INTERNSHIP
+  TEMPORARY
+}
+
+enum ExperienceLevel {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  CLOSED
+  REMOVED
+}
+
+enum JobSource {
+  INTERNAL
+  AGGREGATOR
+  RSS
+}
+
+model AggregatorPartner {
+  id             String       @id @default(cuid())
+  name           String
+  slug           String       @unique
+  apiType        ApiType      @default(REST)
+  feedUrl        String?
+  apiKey         String?
+  ppcRate        Float        @default(0.10)
+  totalClicks    Int          @default(0)
+  totalBilled    Float        @default(0.0)
+  isActive       Boolean      @default(true)
+  jobs           JobListing[]
+  clickEvents    ClickEvent[]
+  invoices       Invoice[]
+  createdAt      DateTime     @default(now())
+}
+
+enum ApiType {
+  REST
+  RSS
+  GRAPHQL
+}
+
+model ClickEvent {
+  id             String            @id @default(cuid())
+  jobId          String
+  job            JobListing        @relation(fields: [jobId], references: [id])
+  aggregatorId   String?
+  aggregator     AggregatorPartner? @relation(fields: [aggregatorId], references: [id])
+  userId         String?
+  sessionId      String?
+  ipAddress      String?
+  userAgent      String?
+  isBillable     Boolean           @default(true)
+  timestamp      DateTime          @default(now())
+}
+
+model Application {
+  id           String            @id @default(cuid())
+  jobId        String
+  job          JobListing        @relation(fields: [jobId], references: [id])
+  userId       String
+  user         User              @relation(fields: [userId], references: [id])
+  cvUrl        String?
+  coverLetter  String?
+  status       ApplicationStatus @default(NEW)
+  appliedAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+enum ApplicationStatus {
+  NEW
+  REVIEWING
+  SHORTLISTED
+  INTERVIEW
+  REJECTED
+  HIRED
+}
+
+model Alert {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  jobId       String
+  job         JobListing @relation(fields: [jobId], references: [id])
+  matchScore  Float
+  channel     String
+  sentAt      DateTime  @default(now())
+  openedAt    DateTime?
+}
+
+model SavedJob {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  jobId     String
+  job       JobListing @relation(fields: [jobId], references: [id])
+  savedAt   DateTime   @default(now())
+
+  @@unique([userId, jobId])
+}
+
+model Invoice {
+  id             String            @id @default(cuid())
+  aggregatorId   String
+  aggregator     AggregatorPartner @relation(fields: [aggregatorId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  totalClicks    Int
+  ppcRate        Float
+  totalAmount    Float
+  status         InvoiceStatus     @default(PENDING)
+  stripeInvoiceId String?
+  createdAt      DateTime          @default(now())
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  content     String
+  excerpt     String?
+  category    String?
+  authorId    String
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String
+  actor        User     @relation(fields: [actorId], references: [id])
+  action       String
+  targetEntity String
+  targetId     String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+}
+After creating the schema, run npx prisma generate and npx prisma migrate dev --name init.
+
+SECTION 4 — FOLDER STRUCTURE
+Organise the project with the following structure:
+find-and-hire-me/
+├── app/                          # Next.js App Router
+│   ├── (auth)/
+│   │   ├── login/page.tsx
+│   │   ├── register/page.tsx
+│   │   └── forgot-password/page.tsx
+│   ├── (main)/
+│   │   ├── page.tsx              # Homepage
+│   │   ├── jobs/
+│   │   │   ├── page.tsx          # Global job search
+│   │   │   ├── [id]/page.tsx     # Single job detail page
+│   │   │   ├── us/page.tsx       # US-specific search
+│   │   │   ├── uk/page.tsx       # UK-specific search
+│   │   │   └── nigeria/page.tsx  # Nigeria-specific search
+│   │   ├── employers/
+│   │   │   ├── page.tsx          # Employer directory
+│   │   │   └── [slug]/page.tsx   # Employer public profile
+│   │   ├── resources/
+│   │   │   ├── page.tsx          # Career advice hub
+│   │   │   └── [slug]/page.tsx   # Single article
+│   │   └── layout.tsx
+│   ├── dashboard/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx              # Job seeker dashboard
+│   │   ├── profile/page.tsx
+│   │   ├── cv/page.tsx
+│   │   ├── applications/page.tsx
+│   │   ├── saved-jobs/page.tsx
+│   │   └── alerts/page.tsx
+│   ├── employer/
+│   │   ├── layout.tsx
+│   │   ├── dashboard/page.tsx
+│   │   ├── post-job/page.tsx
+│   │   ├── jobs/page.tsx
+│   │   ├── applicants/[jobId]/page.tsx
+│   │   └── settings/page.tsx
+│   ├── admin/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx              # Admin overview
+│   │   ├── users/page.tsx
+│   │   ├── employers/page.tsx
+│   │   ├── jobs/page.tsx
+│   │   ├── aggregators/page.tsx
+│   │   ├── invoices/page.tsx
+│   │   ├── analytics/page.tsx
+│   │   ├── blog/page.tsx
+│   │   └── audit-logs/page.tsx
+│   └── api/
+│       ├── auth/[...nextauth]/route.ts
+│       ├── jobs/
+│       │   ├── route.ts          # GET (search), POST (create)
+│       │   └── [id]/
+│       │       ├── route.ts      # GET, PUT, DELETE
+│       │       └── click/route.ts # PPC click tracking
+│       ├── employers/route.ts
+│       ├── applications/route.ts
+│       ├── cv/
+│       │   ├── upload/route.ts
+│       │   └── parse/route.ts
+│       ├── alerts/route.ts
+│       ├── aggregators/
+│       │   ├── route.ts
+│       │   └── ingest/route.ts
+│       ├── admin/route.ts
+│       ├── stripe/
+│       │   ├── webhook/route.ts
+│       │   └── checkout/route.ts
+│       └── search/route.ts
+├── components/
+│   ├── ui/                       # shadcn/ui base components
+│   ├── layout/
+│   │   ├── Navbar.tsx
+│   │   ├── Footer.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── MobileNav.tsx
+│   ├── jobs/
+│   │   ├── JobCard.tsx
+│   │   ├── JobList.tsx
+│   │   ├── JobDetail.tsx
+│   │   ├── JobSearch.tsx
+│   │   ├── JobFilters.tsx
+│   │   ├── JobMapView.tsx
+│   │   ├── FeaturedJobCard.tsx
+│   │   └── JobAlertForm.tsx
+│   ├── employers/
+│   │   ├── EmployerCard.tsx
+│   │   ├── EmployerProfile.tsx
+│   │   └── JobPostForm.tsx
+│   ├── dashboard/
+│   │   ├── CVUpload.tsx
+│   │   ├── CVParser.tsx
+│   │   ├── ApplicationTracker.tsx
+│   │   └── AlertSettings.tsx
+│   ├── admin/
+│   │   ├── StatsCard.tsx
+│   │   ├── DataTable.tsx
+│   │   └── AnalyticsChart.tsx
+│   └── shared/
+│       ├── LocationAutocomplete.tsx
+│       ├── CountryTabs.tsx
+│       ├── RadiusSlider.tsx
+│       └── NotificationBell.tsx
+├── lib/
+│   ├── prisma.ts                 # Prisma client singleton
+│   ├── auth.ts                   # NextAuth config
+│   ├── redis.ts                  # Upstash Redis client
+│   ├── s3.ts                     # AWS S3 / file storage helpers
+│   ├── search.ts                 # PostgreSQL full-text search helpers
+│   ├── matching.ts               # Job-to-candidate scoring algorithm
+│   ├── notifications.ts          # Email + FCM notification helpers
+│   ├── aggregator.ts             # Feed ingestion + normalisation helpers
+│   ├── click-tracker.ts          # PPC click deduplication + logging
+│   ├── stripe.ts                 # Stripe helpers
+│   └── utils.ts
+├── services/
+│   ├── aggregator-cron.ts        # Scheduled feed polling
+│   ├── alert-cron.ts             # Scheduled job alert processing
+│   └── cv-parser.ts              # OpenAI-powered CV parsing
+├── hooks/
+│   ├── useJobSearch.ts
+│   ├── useGeolocation.ts
+│   ├── useDebounce.ts
+│   └── useNotifications.ts
+├── stores/
+│   ├── searchStore.ts            # Zustand search state
+│   └── authStore.ts
+├── types/
+│   └── index.ts                  # Shared TypeScript types
+├── prisma/
+│   └── schema.prisma
+├── public/
+│   └── assets/
+├── .env.local                    # All environment variables (use Replit Secrets)
+└── package.json
+
+SECTION 5 — ENVIRONMENT VARIABLES
+Create the following environment variable keys in Replit Secrets. Provide placeholder values in .env.local:
+env# Database
+DATABASE_URL=postgresql://user:password@host:5432/findandhireme
+
+# NextAuth
+NEXTAUTH_URL=https://your-replit-url.repl.co
+NEXTAUTH_SECRET=generate-a-random-secret-here
+
+# OAuth Providers
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+LINKEDIN_CLIENT_ID=your-linkedin-client-id
+LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret
+
+# AWS S3 (or Replit Object Storage)
+AWS_ACCESS_KEY_ID=your-aws-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=findandhireme-files
+
+# Redis (Upstash)
+UPSTASH_REDIS_REST_URL=your-upstash-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-token
+
+# Email (SendGrid)
+SENDGRID_API_KEY=your-sendgrid-key
+FROM_EMAIL=noreply@findandhireme.com
+
+# Firebase (Push Notifications)
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_PRIVATE_KEY=your-firebase-private-key
+FIREBASE_CLIENT_EMAIL=your-firebase-client-email
+
+# OpenAI (CV Parsing + Matching)
+OPENAI_API_KEY=your-openai-key
+
+# Stripe
+STRIPE_SECRET_KEY=your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
+
+# Mapbox (Location + Map View)
+NEXT_PUBLIC_MAPBOX_TOKEN=your-mapbox-token
+
+# Google Places (Location Autocomplete)
+NEXT_PUBLIC_GOOGLE_PLACES_KEY=your-google-places-key
+
+# MaxMind GeoIP (IP geolocation for country detection)
+MAXMIND_LICENSE_KEY=your-maxmind-key
+
+# Aggregator API Keys
+ADZUNA_APP_ID=your-adzuna-app-id
+ADZUNA_API_KEY=your-adzuna-key
+REED_API_KEY=your-reed-api-key
+
+SECTION 6 — HOMEPAGE DESIGN
+Build the homepage (app/(main)/page.tsx) with the following sections in order:
+6.1 Navbar
+
+Logo ("Find and Hire Me") left-aligned
+Navigation links: Find Jobs | For Employers | Career Resources | Pricing
+Right side: Sign In button + Post a Job CTA button (accent colour)
+Sticky on scroll with a subtle blur/frosted glass effect
+Mobile: Hamburger menu with full-screen drawer
+Show user avatar and dropdown if authenticated (dashboard, profile, logout)
+
+6.2 Hero Section
+
+Full-width hero with a bold headline: "Find Your Next Opportunity, Anywhere in the World"
+Subheadline: "Search thousands of verified jobs across the US, UK, Nigeria and beyond"
+Primary search bar: Two inputs side by side — "Job title, keywords, or company" + "City, state, or postcode" with a location autocomplete dropdown
+A prominent "Search Jobs" CTA button
+Below the search bar: Quick country tabs — 🇺🇸 US Jobs | 🇬🇧 UK Jobs | 🇳🇬 Nigeria Jobs | 🌍 Global & Remote
+A subtle animated background (particles, gradient mesh, or geometric pattern — not a generic purple gradient)
+Stats ticker below the hero: "120,000+ Active Jobs | 8,500+ Employers | 45 Countries Covered"
+
+6.3 Featured Jobs Section
+
+Heading: "Featured Opportunities"
+Horizontal scrollable carousel on mobile, 3-column grid on desktop
+Each FeaturedJobCard shows: employer logo, job title, company name, location, salary range, employment type badge, "Featured" badge, time posted, and "View Job" button
+Only show isFeatured: true AND status: ACTIVE jobs, ordered by featuredUntil DESC
+
+6.4 Country Search Sections
+
+Four tabbed or stacked sections for US, UK, Nigeria, and Global
+Each shows the top 6 most recent active jobs for that country
+Each section has a "View All [Country] Jobs →" link
+
+6.5 How It Works
+
+3-step visual layout:
+
+Create your profile & upload your CV
+Search or receive matched job alerts
+Apply directly and connect with employers
+
+
+Clean icon-driven design with short descriptions
+
+6.6 Top Employers Section
+
+Grid of verified employer logos/cards
+"Hiring Now" badge on employers with active listings
+Clicking opens the employer's public profile page
+
+6.7 Testimonials
+
+3 job seeker testimonials with avatar, name, role found, and quote
+Use placeholder/mock data if no real data exists yet
+
+6.8 Career Resources Preview
+
+Latest 3 blog posts from the CMS with category badge, title, excerpt, and "Read More" link
+
+6.9 Call-to-Action Banner
+
+Bold section: "Ready to Get Hired?" with two buttons — "Search Jobs Now" and "Post a Job"
+Contrasting background colour
+
+6.10 Footer
+
+Four columns: About Us | Job Seekers | Employers | Connect
+Social media icons
+Copyright, Privacy Policy, Terms of Service links
+Country flag links to country-specific job pages
+
+
+SECTION 7 — JOB SEARCH PAGE
+Build the main job search page (app/(main)/jobs/page.tsx) and replicate the same layout for US, UK, and Nigeria variants with pre-applied country filters.
+7.1 Search Bar
+
+Sticky top search bar with keyword input + location autocomplete input
+Location autocomplete uses Google Places API or Mapbox Geocoding API
+"Use My Location" button that calls navigator.geolocation and reverse-geocodes the coordinates
+Country selector dropdown (All Countries | US | UK | Nigeria | Remote)
+
+7.2 Filter Sidebar (Desktop) / Filter Drawer (Mobile)
+Include the following filters with real-time URL query param updates (no page reload):
+
+Employment Type: Full-Time, Part-Time, Contract, Freelance, Internship (checkbox)
+Experience Level: Entry, Mid, Senior, Lead, Executive (checkbox)
+Salary Range: Min/Max dual-handle slider (currency auto-switches by country)
+Date Posted: Any time, Last 24 hours, Last 7 days, Last 30 days (radio)
+Remote Only: Toggle switch
+Distance Radius: 5 / 10 / 25 / 50 / 100 miles (shown only when a specific location is entered)
+Industry: Multi-select dropdown (Technology, Finance, Healthcare, Education, etc.)
+Source: Internal, Aggregator (checkbox — admin-controlled visibility)
+
+7.3 Results Panel
+
+Results count: "Showing 1–20 of 1,247 jobs"
+Sort options: Most Relevant | Most Recent | Salary (High–Low) | Salary (Low–High)
+Toggle between List View and Map View (Mapbox-powered)
+Pagination with 20 results per page
+Each JobCard shows: employer logo, job title, employer name, location, salary, employment type badge, remote badge (if applicable), source badge, skills tags, time posted, Save Job (heart icon) button, Quick Apply or View Job button
+Featured jobs shown with a highlighted border/badge at the top of results
+
+7.4 Map View
+
+Full-width Mapbox GL JS map replacing the results list
+Job location pins clustered at high zoom-out levels
+Clicking a pin opens a popup with job summary and "View Details" link
+As the user pans or zooms the map, results update to match the visible bounding box
+A collapsible panel on the left shows the job list alongside the map on larger screens
+
+7.5 Job Detail Page (app/(main)/jobs/[id]/page.tsx)
+
+Left column (2/3 width): Full job description, required skills tags, employment details table, "Apply Now" button (sticky on mobile)
+Right column (1/3 width): Employer card (logo, name, location, website, "View Company" link), Job summary (salary, type, level, posted date, expiry), Save Job button, Share Job button (copy link + social)
+If job source is aggregator: clicking "Apply Now" fires the PPC click tracking endpoint THEN opens the external URL in a new tab
+If job source is internal: "Apply Now" opens an on-platform application modal (CV upload or use saved CV + optional cover letter textarea)
+Beneath the job: "Similar Jobs" section (6 related jobs by skill and country match)
+Breadcrumb navigation and full Schema.org JobPosting structured data in the <head>
+
+
+SECTION 8 — AUTHENTICATION SYSTEM
+8.1 NextAuth Configuration (lib/auth.ts)
+
+Configure Google OAuth provider
+Configure LinkedIn OAuth provider
+Configure Credentials provider (email + password with bcryptjs)
+On first OAuth sign-in, auto-create a User and JobSeekerProfile record
+JWT strategy with 15-minute access token expiry
+Custom session callback that includes the user's role and id
+Refresh token rotation: store refresh token in HTTP-only cookie, rotate on every access token refresh, invalidate entire session family if a refresh token is reused (detect theft)
+
+8.2 Registration Page
+
+Full name, email, password, confirm password fields
+Role selection: "I'm looking for a job" or "I'm hiring"
+Password strength indicator (zxcvbn library)
+Email verification flow: send verification link via SendGrid on registration
+On submit: hash password with bcryptjs (cost factor 12), create User + appropriate profile record
+Check password against HaveIBeenPwned k-Anonymity API before saving; reject if found in breach database
+
+8.3 Login Page
+
+Email/password form + Google button + LinkedIn button
+"Forgot Password?" link triggers reset email flow (time-limited token, 1-hour expiry)
+After 5 failed attempts: lock account for 30 minutes, send alert email
+Show human-readable error messages without exposing whether the email exists (prevent user enumeration)
+
+8.4 Route Protection
+
+All /dashboard/*, /employer/* routes: require authenticated session, redirect to /login if unauthenticated
+All /admin/* routes: require role === SUPER_ADMIN
+Employer-specific routes: require role === EMPLOYER
+Use Next.js middleware (middleware.ts) for server-side route protection
+
+
+SECTION 9 — JOB SEEKER DASHBOARD
+9.1 Overview Tab
+
+Welcome banner with user's name
+Stats: Applications Submitted, Jobs Saved, Profile Completeness percentage, Active Alerts
+Recent Applications table (job title, employer, status badge, date applied)
+Recommended Jobs section (6 jobs matched to the user's parsed CV skills)
+
+9.2 My Profile Tab
+
+Edit personal information: name, location, phone, LinkedIn URL
+Skills input: tag-style input allowing users to add/remove skills
+Preferred job preferences: employment type, locations, salary range, experience level
+Profile completeness bar showing which sections are incomplete
+
+9.3 CV Upload Tab
+
+Drag-and-drop CV upload zone (PDF and DOCX, max 5MB)
+On upload: file is sent to /api/cv/upload which:
+
+Validates file type via MIME type and magic bytes inspection
+Scans for malware (use a simple file signature check or integrate VirusTotal API if available)
+Stores in S3 (or Replit Object Storage) in a private path: cvs/{userId}/{timestamp}-{filename}
+Calls /api/cv/parse which sends the file content to OpenAI GPT-4o with the system prompt: "Extract structured data from this CV. Return JSON with fields: skills (array of strings), experience (array of {title, company, years}), education (array of {degree, institution, year}), certifications (array of strings), summary (string). Return only valid JSON, no markdown."
+Saves the parsed JSON to JobSeekerProfile.parsedCvData
+
+
+After parsing: display extracted skills, experience, and education in the UI for the user to review and confirm
+Allow the user to delete their CV (removes from S3 and clears parsedCvData)
+
+9.4 My Applications Tab
+
+Full table of all applications: job title, employer name, location, status (colour-coded badge), applied date, and "View Job" link
+Filter by status
+Withdraw application button (sets status to REJECTED with a withdrawal flag)
+
+9.5 Saved Jobs Tab
+
+Grid of saved job cards
+Remove from saved button
+"Apply Now" button on each card
+
+9.6 Job Alerts Tab
+
+List of active alert configurations showing: keywords, locations, employment types, min salary, frequency, and alert channels
+Toggle to enable/disable each alert
+"Add New Alert" button opens a form to configure a new alert rule
+Choose notification channel: Email, Push Notification, or both
+
+
+SECTION 10 — EMPLOYER MODULE
+10.1 Employer Registration
+
+Additional fields beyond user registration: Company Name, Industry, Company Size, Website, Location, Country
+On submission: creates User with role: EMPLOYER and an Employer record with verified: false
+Send welcome email + admin notification that a new employer account needs verification
+Until verified, employer can create draft jobs but cannot publish them publicly
+
+10.2 Employer Dashboard
+
+Stats cards: Active Job Listings, Total Applications Received, Profile Views, CV Downloads
+Recent Applications: last 10 applications across all active jobs
+Active Listings table with quick status toggle (Active / Paused / Closed)
+Quick "Post a New Job" CTA
+
+10.3 Post a Job Page
+
+Multi-step form with progress indicator:
+
+Step 1 — Job Basics: Title, Industry, Employment Type, Experience Level, Number of Openings
+Step 2 — Location: Location type (On-site / Remote / Hybrid), City/Country (if on-site), Mapbox location picker
+Step 3 — Compensation: Salary type (Fixed / Range / Undisclosed), Min/Max salary, Currency
+Step 4 — Description: TipTap rich-text editor for full job description with toolbar (headings, bold, italic, lists, links)
+Step 5 — Requirements: Skills input (tag-style), application deadline date picker
+Step 6 — Review & Publish: Full preview of how the listing will appear, "Save Draft" + "Publish" buttons
+
+
+Validation via Zod on each step before proceeding
+On publish: if employer is on FREE tier and already has 3 active listings, show upgrade prompt
+
+10.4 Applicant Tracking
+
+Per-job applicant list with: applicant name, application date, CV download link, status select dropdown
+Status options: New → Reviewing → Shortlisted → Interview → Rejected → Hired
+Status change triggers an email notification to the applicant (e.g., "Your application has been shortlisted")
+Notes field per applicant (internal, not visible to applicant)
+
+10.5 Employer Public Profile (app/(main)/employers/[slug]/page.tsx)
+
+Company banner image, logo, name, industry, location, website
+"About Us" description
+"Why Work With Us" section (editable by employer)
+Active job listings from this employer in a grid
+
+
+SECTION 11 — ADMIN PANEL
+Protect all /admin routes with role === SUPER_ADMIN middleware.
+11.1 Admin Dashboard
+
+KPI cards: Total Users, Total Jobs (active), Applications Today, Revenue MTD (from Stripe), Aggregator Clicks Today
+Line chart: Daily new users over last 30 days (use Recharts)
+Bar chart: Job listings by country
+Recent registrations table
+Pending employer verifications (with quick Approve/Reject buttons)
+
+11.2 User Management
+
+Searchable, filterable table of all users: name, email, role, status, created date
+Actions: View Profile, Change Role, Suspend Account, Delete Account
+All actions logged to AuditLog table with actor_id
+
+11.3 Employer Verification Queue
+
+List of unverified employers with company details and registration date
+"Approve" button: sets verified: true, sets verifiedAt: now(), sends approval email to employer, logs to AuditLog
+"Reject" button: prompts admin for rejection reason, sends rejection email, logs to AuditLog
+
+11.4 Job Listing Management
+
+Searchable table of all jobs: title, employer/aggregator, country, status, posted date, views, clicks
+Actions: View, Feature/Unfeature, Deactivate, Remove (with reason)
+Bulk actions: Bulk deactivate expired listings
+
+11.5 Aggregator Partner Management
+
+Table of all aggregator partners: name, feed type, PPC rate, total clicks, active status
+Add new aggregator: name, API type (REST/RSS), feed URL or API credentials, agreed PPC rate
+Edit / Deactivate / Delete aggregator
+Per-aggregator click analytics chart (last 30 days)
+"Trigger Manual Ingest" button to force an immediate feed poll for a specific aggregator
+
+11.6 Invoices & Billing
+
+Table of all aggregator invoices: aggregator name, period, total clicks, amount, status, Stripe invoice link
+"Generate Invoices" button: creates invoices for all active aggregators for the previous month based on ClickEvent records
+Filter by status: Pending, Paid, Overdue
+
+11.7 Analytics Dashboard
+
+Total jobs by country (pie chart)
+Click events over time (area chart)
+Top 10 most viewed jobs
+Top 10 employers by applications received
+User registrations by week
+Revenue by month (Stripe data)
+
+11.8 Blog / Resource Manager
+
+Create, edit, publish, and delete blog posts using TipTap editor
+Category assignment
+SEO fields: meta title, meta description, slug
+
+11.9 Audit Log Viewer
+
+Immutable table of all admin and employer actions
+Searchable by actor, action, target entity, date range
+Cannot be edited or deleted from the UI
+
+
+SECTION 12 — AGGREGATOR INTEGRATION ENGINE
+12.1 Ingestion Service (services/aggregator-cron.ts)
+Build a scheduled job using node-cron that runs every 2 hours:
+typescript// Pseudo-logic for the ingestion worker:
+// 1. Fetch all active AggregatorPartner records from the database
+// 2. For each partner:
+//    a. If apiType === 'RSS': use rss-parser to fetch and parse the feed URL
+//    b. If apiType === 'REST': make an authenticated HTTP GET to the partner's API endpoint
+// 3. For each raw job from the feed:
+//    a. Normalise to canonical schema (map feed-specific fields to our JobListing fields)
+//    b. Extract: title, description, location, lat/lng (geocode if needed), salary, employment type, external URL
+//    c. Generate a unique trackingUrl: `${process.env.NEXTAUTH_URL}/api/jobs/${jobId}/click`
+//    d. Check for duplicates: skip if a listing with the same externalUrl already exists
+//    e. Upsert the JobListing record with source: 'AGGREGATOR' and the aggregatorId
+// 4. Log ingestion results (success count, error count) to console and a simple ingest_logs table
+Implement real ingestion for these free/accessible feeds:
+
+RemoteOK RSS: https://remoteok.com/remote-jobs.rss
+We Work Remotely RSS: https://weworkremotely.com/remote-jobs.rss
+Adzuna API (requires free registration): https://api.adzuna.com/v1/api/jobs/{country}/search/1
+
+12.2 PPC Click Tracking (app/api/jobs/[id]/click/route.ts)
+typescript// POST handler:
+// 1. Extract jobId from params, userId from session (if logged in), IP and userAgent from headers
+// 2. Fetch the job record to get aggregatorId and externalUrl
+// 3. If job has no aggregatorId or externalUrl, return 400
+// 4. Deduplication: check Redis for key `click:{userId or sessionId}:{jobId}` with 24-hour TTL
+//    - If key exists: record as non-billable click (isBillable: false)
+//    - If key does not exist: set the key with 24h TTL, mark as billable
+// 5. Create a ClickEvent record in PostgreSQL (async, don't await in the response path)
+// 6. Increment job.clickCount and aggregator.totalClicks (use Prisma transaction)
+// 7. Return JSON: { redirectUrl: job.externalUrl }
+// 8. Frontend then does: window.open(redirectUrl, '_blank')
+
+SECTION 13 — JOB MATCHING & ALERT SYSTEM
+13.1 Matching Algorithm (lib/matching.ts)
+Build a scoring function with the following signature:
+typescriptfunction calculateMatchScore(
+  job: JobListing,
+  profile: JobSeekerProfile & { parsedCvData: ParsedCV }
+): number // returns 0-100
+Scoring weights:
+
+Skills overlap between job.skills and profile.parsedCvData.skills: 40 points max (proportional: matched_skills / total_job_skills × 40)
+Location match (job.country in profile.preferredCountries OR job.isRemote): 25 points
+Employment type match: 15 points
+Salary within range (job.salaryMin >= profile.salaryMin AND job.salaryMax <= profile.salaryMax): 12 points
+Experience level match: 8 points
+
+For semantic skill matching: call OpenAI API with a prompt comparing job skills to candidate skills and asking it to return a similarity score from 0–1. Use this to boost the raw skills overlap score.
+13.2 Alert Cron Job (services/alert-cron.ts)
+Run every 30 minutes using node-cron:
+
+Fetch all newly created JobListings in the last 30 minutes (or 24 hours for DAILY, 7 days for WEEKLY)
+For each new job, fetch all JobSeekerProfiles with parsedCvData not null
+For profiles with alertFrequency: REALTIME or whose alert window has arrived: calculate match score
+If match score >= 70: create an Alert record and send notification via the appropriate channel
+Email template: subject "New job match: {job.title} at {employer.name}", body includes job summary and a link back to the job page with the user's session pre-filled
+
+
+SECTION 14 — LOCATION SEARCH IMPLEMENTATION
+14.1 Location Autocomplete Component (components/shared/LocationAutocomplete.tsx)
+
+Controlled input with debounced API call (300ms) to Google Places Autocomplete API
+Show dropdown with up to 5 suggestions
+On selection: store both the display name and lat/lng coordinates in component state
+Pass lat, lng, and location string to the parent search component
+
+14.2 Geolocation Hook (hooks/useGeolocation.ts)
+typescript// Hook returns: { loading, error, coords, locationName }
+// On call: invoke navigator.geolocation.getCurrentPosition
+// On success: call Mapbox or Google Reverse Geocoding API to get city/region name from lat/lng
+// Return coordinates and human-readable name
+14.3 Search API (app/api/search/route.ts)
+Accept query parameters: q, location, lat, lng, radius, country, employmentType, experienceLevel, salaryMin, salaryMax, isRemote, industry, datePosted, sort, page, limit
+Build the Prisma query dynamically:
+
+If lat and lng are provided: use a raw SQL query with the Haversine formula to filter by distance
+If country is provided: filter by country field
+If q is provided: use PostgreSQL full-text search on the searchVector tsvector column
+Apply all other filters as Prisma where clauses
+Sort by relevance (text search rank), recency, or salary as specified
+Return paginated results with total count
+
+Haversine distance SQL (embed in Prisma $queryRaw):
+sql(6371 * acos(cos(radians($lat)) * cos(radians(lat)) * cos(radians(lng) - radians($lng)) + sin(radians($lat)) * sin(radians(lat)))) AS distance_km
+HAVING distance_km < $radiusKm
+14.4 tsvector Search Index
+Add a Prisma migration to create a full-text search index and trigger:
+sqlALTER TABLE "JobListing" ADD COLUMN search_vector tsvector;
+UPDATE "JobListing" SET search_vector = to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || coalesce(location, ''));
+CREATE INDEX idx_job_search ON "JobListing" USING GIN (search_vector);
+CREATE OR REPLACE FUNCTION update_job_search_vector() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('english', coalesce(NEW.title, '') || ' ' || coalesce(NEW.description, '') || ' ' || coalesce(NEW.location, ''));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER job_search_trigger BEFORE INSERT OR UPDATE ON "JobListing"
+  FOR EACH ROW EXECUTE FUNCTION update_job_search_vector();
+
+SECTION 15 — SECURITY IMPLEMENTATION
+Implement all of the following security measures:
+15.1 Helmet.js
+Add helmet() middleware to the Express server and add custom Content Security Policy headers in next.config.js for the Next.js app.
+15.2 Rate Limiting
+typescript// Apply to all API routes via middleware:
+// - /api/auth/*: 10 requests per 15 minutes per IP
+// - /api/jobs (GET): 200 requests per minute per IP
+// - /api/cv/upload: 5 requests per hour per user
+// - /api/jobs (POST): 20 requests per hour per authenticated user
+// Use express-rate-limit with Upstash Redis store for distributed rate limiting
+15.3 Input Validation
+
+All API endpoints validate request bodies with Zod schemas before processing
+All database queries use Prisma parameterised queries exclusively — never string-interpolated SQL except for the explicit Haversine raw query with bound parameters
+
+15.4 File Upload Security
+typescript// In /api/cv/upload:
+// 1. Check file size (max 5MB)
+// 2. Check allowed MIME types: application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document
+// 3. Check magic bytes: PDF starts with %PDF (25 50 44 46), DOCX is a ZIP starting with PK (50 4B)
+// 4. Reject any file that fails these checks with a 400 error
+// 5. Rename file to a UUID before storing — never use original filename in storage path
+15.5 CORS
+Configure CORS to only allow requests from the application's own domain. Block all other origins.
+15.6 Session Security
+
+NEXTAUTH_SECRET must be a cryptographically random 64-character string
+Cookies: httpOnly: true, secure: true (HTTPS only), sameSite: 'lax'
+Never store JWT tokens in localStorage
+
+15.7 HaveIBeenPwned Password Check
+typescript// During registration and password change:
+// 1. SHA1 hash the password
+// 2. Send the first 5 characters to: https://api.pwnedpasswords.com/range/{first5chars}
+// 3. Check if the remaining hash suffix appears in the response
+// 4. If found: reject the password with message "This password has been found in a data breach. Please choose a different one."
+15.8 Audit Logging
+Create a logAuditEvent(actorId, action, targetEntity, targetId, metadata?) helper. Call this function on every:
+
+Admin approval/rejection of employers
+Admin removal of job listings or users
+Employer status change on applications
+Any privileged data access
+
+
+SECTION 16 — AUTOMATED BACKUP SYSTEM
+16.1 Database Backup Cron
+Create a cron job that runs daily at 02:00 UTC:
+typescript// 1. Use pg_dump (via child_process.exec) to dump the PostgreSQL database to a .sql.gz file
+// 2. Name the file: backup-{YYYY-MM-DD}.sql.gz
+// 3. Upload to S3 bucket in path: /backups/database/{filename}
+// 4. After successful upload, delete the local temp file
+// 5. List all backup files older than 30 days in S3 and delete them (enforce retention)
+// 6. Log success/failure with timestamp to a backup_logs table
+// 7. If backup fails: send an email alert to the admin email address
+16.2 S3 Versioning Configuration
+In the S3 bucket setup code (lib/s3.ts), document that the bucket must be configured with:
+
+Versioning: Enabled
+Lifecycle Policy: Delete non-current versions after 90 days
+Access: Bucket ACL set to private, no public access
+Server-side encryption: AES-256 (SSE-S3)
+
+If using Replit Object Storage instead of S3, implement file versioning by appending timestamps to filenames and maintaining a versions manifest JSON file per object.
+16.3 Backup Integrity Check Cron
+Create a weekly cron job that:
+
+Downloads the latest database backup from S3
+Attempts to restore it into a temporary schema (using pg_restore or executing the SQL against a test schema)
+Runs a simple validation query: SELECT COUNT(*) FROM "User" — if this succeeds and returns > 0, the backup is valid
+Logs the result (valid/invalid, row counts) to the backup_logs table
+Sends a weekly backup health summary email to the admin
+
+16.4 Backup Health in Admin Panel
+Add a "Backup Status" card to the Admin Dashboard showing:
+
+Last successful backup: date and time
+Last backup file size
+Backup files count in S3
+Last integrity check result (Pass/Fail)
+"Trigger Manual Backup" button
+
+
+SECTION 17 — STRIPE INTEGRATION
+17.1 Employer Subscription Plans
+Define three products in Stripe:
+
+Free: $0/month — 3 active listings, no features
+Premium: $49/month — 25 active listings, featured listings, analytics
+Enterprise: $199/month — unlimited listings, all features, priority support
+
+17.2 Checkout Flow
+When an employer clicks "Upgrade to Premium":
+
+Call /api/stripe/checkout which creates a Stripe Checkout Session with the selected price ID
+Redirect employer to Stripe-hosted checkout page
+On successful payment, Stripe fires a checkout.session.completed webhook to /api/stripe/webhook
+Webhook handler: update employer's subscriptionTier to PREMIUM or ENTERPRISE, store stripeCustomerId
+
+17.3 Aggregator PPC Billing
+On the 1st of each month, a cron job:
+
+Aggregates all billable ClickEvents for each aggregator in the previous month
+Creates an Invoice record
+Creates a Stripe Invoice programmatically for the aggregator's Stripe customer
+Sends the invoice via Stripe (auto-email with PDF)
+
+
+SECTION 18 — UI DESIGN SYSTEM
+18.1 Visual Identity
+
+Primary Colour: Deep Navy #1B3A5C
+Accent Colour: Electric Blue #2E75B6
+Success: Emerald #10B981
+Warning: Amber #F59E0B
+Danger: Rose #F43F5E
+Background: Off-white #F8FAFC
+Surface: White #FFFFFF
+Text Primary: #0F172A
+Text Secondary: #64748B
+
+18.2 Typography
+
+Display / Headings: 'DM Serif Display' (Google Fonts) — for hero headlines and section titles
+Body / UI: 'Plus Jakarta Sans' (Google Fonts) — for all interface text
+Import both via next/font/google in the root layout
+
+18.3 Component Tokens
+Define in tailwind.config.ts:
+javascriptextend: {
+  colors: {
+    navy: { DEFAULT: '#1B3A5C', light: '#2A5280', dark: '#0F2540' },
+    accent: { DEFAULT: '#2E75B6', light: '#4A90D9', dark: '#1A5A9A' },
+  },
+  fontFamily: {
+    display: ['DM Serif Display', 'serif'],
+    sans: ['Plus Jakarta Sans', 'sans-serif'],
+  },
+  boxShadow: {
+    card: '0 2px 8px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.04)',
+    cardHover: '0 8px 24px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.04)',
+  }
+}
+18.4 Job Card Design
+
+White card with shadow-card and hover:shadow-cardHover transition
+4px left border in accent colour for featured jobs
+Employer logo in a rounded square (fallback to initials avatar if no logo)
+Salary shown in bold; "Undisclosed" in muted text if not provided
+Employment type badge: pill-shaped with colour coding (Full-Time = blue, Contract = amber, Remote = green)
+"New" badge for jobs posted within 24 hours
+"Featured" badge with star icon for featured listings
+Smooth scale transform on hover: hover:scale-[1.01] transition-transform
+
+
+SECTION 19 — RESPONSIVE DESIGN REQUIREMENTS
+
+The entire application must be fully responsive: mobile (375px), tablet (768px), desktop (1280px), wide (1536px)
+Mobile-first CSS approach using Tailwind's responsive prefixes
+Navigation: sticky top bar on mobile with hamburger menu; full horizontal navbar on desktop
+Job search page: filter sidebar collapses into a bottom-sheet drawer on mobile
+Job cards: single column on mobile, 2-column on tablet, 3-column on desktop (search results remain single-column list with map view option)
+Map view: full-width on mobile with a slide-up job list panel; split-view on desktop
+Admin dashboard: responsive tables with horizontal scroll on mobile; sidebar navigation collapses on mobile
+
+
+SECTION 20 — PERFORMANCE REQUIREMENTS
+
+All public-facing pages (homepage, job listings, job detail) must use Next.js Static Site Generation (SSG) with Incremental Static Regeneration (ISR, revalidate: 300 seconds) where possible
+Use next/image for all images with proper width/height and priority flags for above-the-fold images
+Implement React Query/TanStack Query for client-side data fetching with stale-while-revalidate caching
+Lazy-load the Mapbox GL JS library (dynamic import with next/dynamic, ssr: false) since it is client-only
+Add loading skeletons (not spinners) for all async data panels: job cards, employer profiles, dashboard stats
+All API routes should have explicit cache-control headers where appropriate
+Use Redis (Upstash) to cache the results of the 10 most common search query combinations for 5 minutes
+
+
+SECTION 21 — SEO REQUIREMENTS
+
+Every job listing page must have a dynamic <title> and <meta description> based on the job title, employer name, and location
+Implement generateMetadata() in Next.js for all dynamic pages
+Every job listing page must include <script type="application/ld+json"> with a Schema.org JobPosting object containing: title, description, datePosted, validThrough, employmentType, hiringOrganization, jobLocation, baseSalary
+Generate a dynamic sitemap.xml at /sitemap.xml that includes all active job listing URLs, employer profile URLs, and blog post URLs, refreshed every hour via ISR
+Add robots.txt that allows all crawlers on public pages and disallows /admin, /dashboard, /employer
+
+
+SECTION 22 — TESTING
+Create the following test files:
+Unit Tests (Jest + React Testing Library)
+
+__tests__/lib/matching.test.ts — test the job matching scoring function with mock data covering edge cases
+__tests__/lib/click-tracker.test.ts — test deduplication logic
+__tests__/api/search.test.ts — test search query construction with various filter combinations
+
+Integration Tests
+
+__tests__/api/auth.test.ts — test registration, login, token refresh
+__tests__/api/jobs.test.ts — test job creation, retrieval, and click tracking
+
+Run tests with npm test. Ensure package.json includes the test script.
+
+SECTION 23 — FINAL CHECKLIST
+Before declaring the build complete, verify every item in this list:
+
+ All Prisma models created and migrations run successfully
+ NextAuth working with Google, LinkedIn, and email/password
+ Homepage renders all 10 sections with real data from the database
+ Job search works with keyword, location, country, and all filter combinations
+ Map view displays jobs as pins and updates on pan/zoom
+ Job detail page renders full job with Schema.org markup
+ PPC click tracking endpoint creates ClickEvent records and redirects correctly
+ Aggregator RSS ingestion cron runs and populates jobs in the database
+ CV upload, MIME validation, and OpenAI parsing pipeline functional
+ Job matching score function returns values 0–100 correctly
+ Alert notification cron sends emails for matches >= 70
+ Admin panel loads with all 9 sections functional
+ Employer verification workflow (register → admin approves → can publish jobs)
+ Stripe checkout flow functional for employer subscription upgrade
+ Rate limiting applied to all sensitive API endpoints
+ HaveIBeenPwned password check functional during registration
+ Daily database backup cron creates .sql.gz and uploads to S3
+ Backup integrity cron runs weekly and logs results
+ All pages are mobile-responsive
+ All job listing pages have correct Schema.org structured data
+ sitemap.xml and robots.txt are accessible
+ All secrets in Replit Secrets, none hardcoded in source
+ TypeScript compiles with zero errors (tsc --noEmit)
+
+
+SECTION 24 — STARTING INSTRUCTIONS FOR REPLIT AI
+Begin the build in this exact order:
+
+Initialise a new Next.js 14 project with TypeScript, Tailwind CSS, and the App Router (npx create-next-app@latest)
+Install all dependencies listed in Section 2
+Set up all environment variable placeholders in .env.local
+Create the Prisma schema from Section 3 and run migrations
+Configure NextAuth from Section 8
+Build the UI design system (Tailwind config, fonts, global CSS) from Section 18
+Build the shared layout components (Navbar, Footer) from Section 6
+Build the Homepage from Section 6
+Build the Job Search page and Job Detail page from Section 7
+Build the Job Seeker Dashboard from Section 9
+Build the Employer Module from Section 10
+Build the Admin Panel from Section 11
+Implement all API routes
+Implement the Aggregator Ingestion Engine from Section 12
+Implement the Job Matching and Alert System from Section 13
+Implement Location Search from Section 14
+Apply all Security measures from Section 15
+Implement the Backup System from Section 16
+Implement Stripe from Section 17
+Apply SEO requirements from Section 21
+Write tests from Section 22
+Run the final checklist from Section 23
+
+Do not move to the next step until the current step is complete and the application runs without errors.
+
+End of Prompt — "Find and Hire Me" Full Build Instructions for Replit AI
