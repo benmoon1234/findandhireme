@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Briefcase, User, LogOut, Menu, X, Plus } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -34,6 +35,7 @@ export function Navbar() {
             <Link href="/resources" data-testid="link-resources" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Resources</Link>
             
             <div className="flex items-center space-x-4 ml-4 border-l border-border pl-6">
+              <ThemeToggle />
               {user ? (
                 <div className="flex items-center space-x-4">
                   <Link 
@@ -78,13 +80,17 @@ export function Navbar() {
             <Link href="/jobs" className="px-4 py-3 rounded-lg hover:bg-muted font-medium">Find Jobs</Link>
             <Link href="/employers" className="px-4 py-3 rounded-lg hover:bg-muted font-medium">For Employers</Link>
             <Link href="/resources" className="px-4 py-3 rounded-lg hover:bg-muted font-medium">Career Resources</Link>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
             <hr className="border-border" />
             {user ? (
                <>
                 <Link href={user.role === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard'} className="px-4 py-3 rounded-lg hover:bg-muted font-medium flex items-center gap-2">
                   <User className="w-5 h-5" /> Dashboard
                 </Link>
-                <button onClick={handleLogout} className="px-4 py-3 rounded-lg hover:bg-red-50 text-destructive font-medium text-left flex items-center gap-2">
+                <button onClick={handleLogout} className="px-4 py-3 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 text-destructive font-medium text-left flex items-center gap-2">
                   <LogOut className="w-5 h-5" /> Sign Out
                 </button>
                </>

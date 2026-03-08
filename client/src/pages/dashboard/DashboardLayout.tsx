@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Briefcase, User, FileText, Bookmark, Bell, LogOut, Settings, BarChart2 } from "lucide-react";
+import { Briefcase, User, FileText, Bookmark, Bell, LogOut, Settings, BarChart2, Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,11 +12,29 @@ interface LayoutProps {
 export function DashboardLayout({ children, role }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
     await logout();
     setLocation("/");
   };
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    }
+    if (mobileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [mobileMenuOpen]);
 
   const getLinks = () => {
     if (role === 'EMPLOYER') return [
@@ -44,7 +63,6 @@ export function DashboardLayout({ children, role }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row">
-      {/* Sidebar */}
       <aside className="w-full md:w-64 bg-card border-r border-border md:min-h-screen flex-shrink-0 flex flex-col hidden md:flex">
         <div className="p-6 border-b border-border">
           <Link href="/" className="flex items-center gap-2 text-primary cursor-pointer">
@@ -73,26 +91,72 @@ export function DashboardLayout({ children, role }: LayoutProps) {
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
               {user?.name?.charAt(0) || 'U'}
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden flex-1">
               <div className="font-bold text-sm truncate">{user?.name}</div>
               <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
             </div>
+            <ThemeToggle />
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-destructive hover:bg-red-50 transition-colors">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-destructive hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
             <LogOut className="w-5 h-5" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-x-hidden">
-        {/* Mobile Header (minimal) */}
-        <div className="md:hidden bg-card border-b border-border p-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 text-primary">
-            <Briefcase className="w-6 h-6" />
-          </Link>
-          <button onClick={handleLogout} className="text-muted-foreground"><LogOut className="w-5 h-5"/></button>
+        <div className="md:hidden bg-card border-b border-border p-4 flex justify-between items-center relative" ref={menuRef}>
+          <div className="flex items-center gap-3">
+            <button
+              data-testid="button-mobile-menu"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl hover:bg-muted text-foreground transition-colors"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+            <Link href="/" className="flex items-center gap-2 text-primary">
+              <Briefcase className="w-6 h-6" />
+              <span className="font-display font-bold text-foreground">Find & Hire <span className="text-primary">Me</span></span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={handleLogout} className="p-2 rounded-xl text-muted-foreground hover:text-destructive transition-colors">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+
+          {mobileMenuOpen && (
+            <div className="absolute top-full left-0 right-0 bg-card border-b border-border shadow-xl z-50 animate-slide-up">
+              <div className="p-3 border-b border-border">
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                    {user?.name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="font-bold text-sm truncate">{user?.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+                  </div>
+                </div>
+              </div>
+              <nav className="p-3 space-y-1">
+                {links.map(link => {
+                  const active = location === link.path;
+                  return (
+                    <Link
+                      key={link.path}
+                      href={link.path}
+                      data-testid={`mobile-link-${link.name.toLowerCase().replace(/\s+/g, '-')}`}
+                      className={`flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all ${active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                    >
+                      <link.icon className="w-5 h-5" />
+                      {link.name}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
         </div>
         
         <div className="p-4 sm:p-8 max-w-6xl mx-auto animate-fade-in">

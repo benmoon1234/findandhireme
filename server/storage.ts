@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, inArray, count } from "drizzle-orm";
+import { eq, and, inArray, count, sql, desc } from "drizzle-orm";
 import {
   users,
   jobListings,
@@ -8,6 +8,9 @@ import {
   savedJobs,
   blogPosts,
   jobSeekerProfiles,
+  alerts,
+  clickEvents,
+  aggregatorPartners,
   type User,
   type InsertUser,
   type JobListing,
@@ -30,6 +33,8 @@ export interface IStorage {
   createJob(job: InsertJobListing): Promise<JobListing>;
   updateJob(id: number, updates: Partial<InsertJobListing>): Promise<JobListing | undefined>;
   deleteJob(id: number): Promise<void>;
+  incrementViewCount(id: number): Promise<void>;
+  incrementClickCount(id: number): Promise<void>;
 
   getEmployers(): Promise<Employer[]>;
   getEmployerBySlug(slug: string): Promise<Employer | undefined>;
@@ -52,6 +57,13 @@ export interface IStorage {
 
   getSeekerProfile(userId: number): Promise<any | undefined>;
   upsertSeekerProfile(userId: number, data: any): Promise<any>;
+
+  getAlerts(userId: number): Promise<any[]>;
+  createAlert(data: any): Promise<any>;
+
+  recordClickEvent(data: any): Promise<any>;
+  incrementAggregatorClicks(aggregatorId: number, ppcRate: number): Promise<void>;
+  getAggregatorPartner(id: number): Promise<any | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -188,6 +200,40 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(jobSeekerProfiles).values({ userId, ...data }).returning();
     return created;
+  }
+
+  async getAlerts(userId: number): Promise<any[]> {
+    return await db.select().from(alerts).where(eq(alerts.userId, userId)).orderBy(desc(alerts.sentAt));
+  }
+
+  async createAlert(data: any): Promise<any> {
+    const [created] = await db.insert(alerts).values(data).returning();
+    return created;
+  }
+
+  async recordClickEvent(data: any): Promise<any> {
+    const [created] = await db.insert(clickEvents).values(data).returning();
+    return created;
+  }
+
+  async incrementViewCount(id: number): Promise<void> {
+    await db.update(jobListings).set({ viewCount: sql`COALESCE(${jobListings.viewCount}, 0) + 1` }).where(eq(jobListings.id, id));
+  }
+
+  async incrementClickCount(id: number): Promise<void> {
+    await db.update(jobListings).set({ clickCount: sql`COALESCE(${jobListings.clickCount}, 0) + 1` }).where(eq(jobListings.id, id));
+  }
+
+  async incrementAggregatorClicks(aggregatorId: number, ppcRate: number): Promise<void> {
+    await db.update(aggregatorPartners).set({
+      totalClicks: sql`COALESCE(${aggregatorPartners.totalClicks}, 0) + 1`,
+      totalBilled: sql`COALESCE(${aggregatorPartners.totalBilled}, 0) + ${ppcRate}`,
+    }).where(eq(aggregatorPartners.id, aggregatorId));
+  }
+
+  async getAggregatorPartner(id: number): Promise<any | undefined> {
+    const [partner] = await db.select().from(aggregatorPartners).where(eq(aggregatorPartners.id, id));
+    return partner;
   }
 }
 

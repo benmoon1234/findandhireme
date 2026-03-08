@@ -337,6 +337,114 @@ export async function registerRoutes(
     res.json(profile);
   });
 
+  // ----- Alerts Routes -----
+  app.get("/api/alerts", requireAuth, async (req, res) => {
+    const userAlerts = await storage.getAlerts(req.session.userId!);
+    res.json(userAlerts);
+  });
+
+  app.patch("/api/profile/alerts", requireAuth, async (req, res) => {
+    const { alertFrequency, alertChannels } = req.body;
+    const validFrequencies = ["DAILY", "WEEKLY", "INSTANT", "NEVER"];
+    if (alertFrequency && !validFrequencies.includes(alertFrequency)) {
+      return res.status(400).json({ message: "Invalid alert frequency" });
+    }
+    const updates: any = {};
+    if (alertFrequency) updates.alertFrequency = alertFrequency;
+    if (alertChannels) updates.alertChannels = alertChannels;
+    const profile = await storage.upsertSeekerProfile(req.session.userId!, updates);
+    res.json(profile);
+  });
+
+  // ----- Click Tracking Routes -----
+  const clickRateLimit = new Map<string, number>();
+
+  app.post("/api/jobs/:id/click", requireAuth, async (req, res) => {
+    try {
+      const jobId = Number(req.params.id);
+      const job = await storage.getJob(jobId);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+
+      const rateLimitKey = `click:${req.session.userId}:${jobId}`;
+      const lastClick = clickRateLimit.get(rateLimitKey);
+      const now = Date.now();
+      if (lastClick && now - lastClick < 60000) {
+        return res.json({ tracked: false, reason: "rate_limited" });
+      }
+      clickRateLimit.set(rateLimitKey, now);
+
+      await storage.incrementClickCount(jobId);
+
+      const isBillable = !!job.aggregatorId && job.source === "AGGREGATOR";
+      await storage.recordClickEvent({
+        jobId,
+        aggregatorId: job.aggregatorId || null,
+        userId: req.session.userId || null,
+        sessionId: req.sessionID || null,
+        ipAddress: req.ip || null,
+        userAgent: req.headers["user-agent"] || null,
+        isBillable,
+      });
+
+      if (isBillable && job.aggregatorId) {
+        const partner = await storage.getAggregatorPartner(job.aggregatorId);
+        if (partner) {
+          await storage.incrementAggregatorClicks(job.aggregatorId, partner.ppcRate || 0.10);
+        }
+      }
+
+      res.json({ tracked: true });
+    } catch (err) {
+      console.error("Click tracking error:", err);
+      res.json({ tracked: false });
+    }
+  });
+
+  app.get("/api/jobs/:id/track", async (req, res) => {
+    try {
+      const jobId = Number(req.params.id);
+      const job = await storage.getJob(jobId);
+      if (!job || !job.externalUrl) return res.status(404).json({ message: "Job not found" });
+
+      await storage.incrementClickCount(jobId);
+
+      const isBillable = !!job.aggregatorId && job.source === "AGGREGATOR";
+      await storage.recordClickEvent({
+        jobId,
+        aggregatorId: job.aggregatorId || null,
+        userId: req.session.userId || null,
+        sessionId: req.sessionID || null,
+        ipAddress: req.ip || null,
+        userAgent: req.headers["user-agent"] || null,
+        isBillable,
+      });
+
+      if (isBillable && job.aggregatorId) {
+        const partner = await storage.getAggregatorPartner(job.aggregatorId);
+        if (partner) {
+          await storage.incrementAggregatorClicks(job.aggregatorId, partner.ppcRate || 0.10);
+        }
+      }
+
+      res.redirect(job.externalUrl);
+    } catch (err) {
+      console.error("Track redirect error:", err);
+      res.status(500).json({ message: "Tracking failed" });
+    }
+  });
+
+  app.post("/api/jobs/:id/view", async (req, res) => {
+    try {
+      const jobId = Number(req.params.id);
+      const job = await storage.getJob(jobId);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      await storage.incrementViewCount(jobId);
+      res.json({ tracked: true });
+    } catch {
+      res.json({ tracked: false });
+    }
+  });
+
   // ----- Blog Posts Routes -----
   app.get(api.blogPosts.list.path, async (req, res) => {
     const posts = await storage.getBlogPosts();

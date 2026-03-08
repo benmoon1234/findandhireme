@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -18,6 +18,14 @@ export default function JobDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const viewTracked = useRef(false);
+
+  useEffect(() => {
+    if (id && !viewTracked.current) {
+      viewTracked.current = true;
+      fetch(`/api/jobs/${id}/view`, { method: "POST", credentials: "include" }).catch(() => {});
+    }
+  }, [id]);
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
@@ -237,11 +245,20 @@ export default function JobDetail() {
                   </p>
 
                   {hasApplied ? (
-                    <div data-testid="text-applied" className="w-full flex items-center justify-center gap-2 bg-green-50 text-green-700 py-3.5 rounded-xl font-bold border border-green-200">
+                    <div data-testid="text-applied" className="w-full flex items-center justify-center gap-2 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 py-3.5 rounded-xl font-bold border border-green-200 dark:border-green-800">
                       <CheckCircle2 className="w-5 h-5" /> Applied
                     </div>
                   ) : job.source === 'AGGREGATOR' ? (
-                    <a href={job.externalUrl || '#'} target="_blank" rel="noopener noreferrer" data-testid="link-apply-external" className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/30">
+                    <a
+                      href={job.externalUrl || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid="link-apply-external"
+                      className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/30"
+                      onClick={() => {
+                        fetch(`/api/jobs/${id}/click`, { method: "POST", credentials: "include" }).catch(() => {});
+                      }}
+                    >
                       Apply on Partner Site <ExternalLink className="w-4 h-4" />
                     </a>
                   ) : (
