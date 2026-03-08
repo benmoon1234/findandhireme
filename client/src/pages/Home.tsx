@@ -1,15 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { Search, MapPin, Target, FileText, Send, Building } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { JobCard } from "@/components/jobs/JobCard";
 import { useJobs } from "@/hooks/use-jobs";
+import { useQuery } from "@tanstack/react-query";
+import type { Employer } from "@shared/schema";
 
 export default function Home() {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const { data: jobs, isLoading } = useJobs();
+  const { data: employers } = useQuery<Employer[]>({ queryKey: ["/api/employers"] });
+
+  const employerMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    employers?.forEach(e => { map[e.id] = e.companyName; });
+    return map;
+  }, [employers]);
 
   const featuredJobs = jobs?.filter(j => j.isFeatured).slice(0, 6) || [];
   const recentJobs = jobs?.slice(0, 4) || [];
@@ -110,7 +119,7 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {featuredJobs.map(job => (
-                <JobCard key={job.id} job={job} featured={true} />
+                <JobCard key={job.id} job={job} featured={true} employerName={job.employerId ? employerMap[job.employerId] : undefined} />
               ))}
             </div>
           )}
