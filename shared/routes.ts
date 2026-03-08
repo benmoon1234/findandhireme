@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, insertJobListingSchema, insertApplicationSchema, insertEmployerSchema, jobListings, users, applications, employers } from "./schema";
+import { insertUserSchema, insertJobListingSchema, insertApplicationSchema, insertEmployerSchema, jobListings, users, applications, employers, savedJobs, blogPosts } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({ message: z.string(), field: z.string().optional() }),
@@ -137,6 +137,51 @@ export const api = {
       },
     },
   },
+  savedJobs: {
+    list: {
+      method: "GET" as const,
+      path: "/api/saved-jobs" as const,
+      responses: {
+        200: z.array(z.custom<typeof savedJobs.$inferSelect>()),
+        401: errorSchemas.unauthorized,
+      },
+    },
+    save: {
+      method: "POST" as const,
+      path: "/api/saved-jobs" as const,
+      input: z.object({ jobId: z.number() }),
+      responses: {
+        201: z.custom<typeof savedJobs.$inferSelect>(),
+        400: errorSchemas.validation,
+        401: errorSchemas.unauthorized,
+      },
+    },
+    unsave: {
+      method: "DELETE" as const,
+      path: "/api/saved-jobs/:jobId" as const,
+      responses: {
+        204: z.void(),
+        401: errorSchemas.unauthorized,
+      },
+    },
+  },
+  blogPosts: {
+    list: {
+      method: "GET" as const,
+      path: "/api/blog-posts" as const,
+      responses: {
+        200: z.array(z.custom<typeof blogPosts.$inferSelect>()),
+      },
+    },
+    get: {
+      method: "GET" as const,
+      path: "/api/blog-posts/:slug" as const,
+      responses: {
+        200: z.custom<typeof blogPosts.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
@@ -150,3 +195,6 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertJobListing = z.infer<typeof insertJobListingSchema>;

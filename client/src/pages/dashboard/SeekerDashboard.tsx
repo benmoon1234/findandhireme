@@ -7,7 +7,7 @@ export default function SeekerDashboard() {
   
   return (
     <DashboardLayout role="JOB_SEEKER">
-      <h1 className="text-3xl font-display font-bold mb-2">Welcome back, {user?.name?.split(' ')[0] || 'Seeker'}</h1>
+      <h1 data-testid="text-welcome" className="text-3xl font-display font-bold mb-2">Welcome back, {user?.name?.split(' ')[0] || 'Seeker'}</h1>
       <p className="text-muted-foreground mb-8">Here is what's happening with your job search today.</p>
 
       {/* Stats Grid */}

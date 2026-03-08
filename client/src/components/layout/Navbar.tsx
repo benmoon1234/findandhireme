@@ -29,9 +29,9 @@ export function Navbar() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/jobs" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Find Jobs</Link>
-            <Link href="/employers" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">For Employers</Link>
-            <Link href="/resources" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Career Resources</Link>
+            <Link href="/jobs" data-testid="link-find-jobs" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Find Jobs</Link>
+            <Link href="/employers" data-testid="link-employers" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Employers</Link>
+            <Link href="/resources" data-testid="link-resources" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Resources</Link>
             
             <div className="flex items-center space-x-4 ml-4 border-l border-border pl-6">
               {user ? (
@@ -51,8 +51,8 @@ export function Navbar() {
                 </div>
               ) : (
                 <>
-                  <Link href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">Sign In</Link>
-                  <Link href="/employer/post-job" className="px-5 py-2.5 rounded-full font-semibold bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center gap-2">
+                  <Link href="/auth" data-testid="link-sign-in" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">Sign In</Link>
+                  <Link href="/employer/post-job" data-testid="link-post-job" className="px-5 py-2.5 rounded-full font-semibold bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center gap-2">
                     <Plus className="w-4 h-4" />
                     Post a Job
                   </Link>

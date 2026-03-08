@@ -20,7 +20,7 @@ export default function Auth() {
         await login({ email, password });
         setLocation("/dashboard");
       } else {
-        await register({ email, password, name, role });
+        await register({ email, hashedPassword: password, name, role });
         setLocation(role === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard');
       }
     } catch (err: any) {
@@ -93,6 +93,7 @@ export default function Auth() {
                 <input 
                   type="email" 
                   required
+                  data-testid="input-email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
@@ -111,6 +112,7 @@ export default function Auth() {
                 <input 
                   type="password" 
                   required
+                  data-testid="input-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
@@ -121,6 +123,7 @@ export default function Auth() {
 
             <button 
               type="submit" 
+              data-testid="button-submit"
               disabled={isLoggingIn || isRegistering}
               className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:transform-none"
             >

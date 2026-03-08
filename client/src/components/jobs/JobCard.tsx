@@ -7,7 +7,7 @@ export function JobCard({ job, featured = false }: { job: JobListing, featured?:
   const isInternal = job.source === "INTERNAL";
   
   return (
-    <div className={`
+    <div data-testid={`card-job-${job.id}`} className={`
       bg-card rounded-2xl p-6 relative overflow-hidden group
       border border-border/60 hover-elevate
       ${featured ? 'ring-2 ring-primary/20 shadow-md shadow-primary/5' : 'shadow-sm shadow-black/5'}

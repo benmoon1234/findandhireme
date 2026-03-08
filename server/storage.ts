@@ -1,10 +1,12 @@
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   users,
   jobListings,
   employers,
   applications,
+  savedJobs,
+  blogPosts,
   type User,
   type InsertUser,
   type JobListing,
@@ -16,30 +18,33 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
-  // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
-  // Jobs
   getJobs(): Promise<JobListing[]>;
   getJob(id: number): Promise<JobListing | undefined>;
   createJob(job: InsertJobListing): Promise<JobListing>;
   updateJob(id: number, updates: Partial<InsertJobListing>): Promise<JobListing | undefined>;
   deleteJob(id: number): Promise<void>;
 
-  // Employers
   getEmployers(): Promise<Employer[]>;
   getEmployerBySlug(slug: string): Promise<Employer | undefined>;
   createEmployer(employer: InsertEmployer): Promise<Employer>;
 
-  // Applications
   getApplications(userId?: number): Promise<Application[]>;
   createApplication(application: InsertApplication): Promise<Application>;
+
+  getSavedJobs(userId: number): Promise<any[]>;
+  saveJob(userId: number, jobId: number): Promise<any>;
+  unsaveJob(userId: number, jobId: number): Promise<void>;
+
+  getBlogPosts(): Promise<any[]>;
+  getBlogPostBySlug(slug: string): Promise<any | undefined>;
+  createBlogPost(post: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -55,7 +60,6 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Jobs
   async getJobs(): Promise<JobListing[]> {
     return await db.select().from(jobListings);
   }
@@ -71,11 +75,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateJob(id: number, updates: Partial<InsertJobListing>): Promise<JobListing | undefined> {
-    const [updated] = await db
-      .update(jobListings)
-      .set(updates)
-      .where(eq(jobListings.id, id))
-      .returning();
+    const [updated] = await db.update(jobListings).set(updates).where(eq(jobListings.id, id)).returning();
     return updated;
   }
 
@@ -83,7 +83,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(jobListings).where(eq(jobListings.id, id));
   }
 
-  // Employers
   async getEmployers(): Promise<Employer[]> {
     return await db.select().from(employers);
   }
@@ -98,7 +97,6 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  // Applications
   async getApplications(userId?: number): Promise<Application[]> {
     if (userId) {
       return await db.select().from(applications).where(eq(applications.userId, userId));
@@ -108,6 +106,33 @@ export class DatabaseStorage implements IStorage {
 
   async createApplication(application: InsertApplication): Promise<Application> {
     const [created] = await db.insert(applications).values(application).returning();
+    return created;
+  }
+
+  async getSavedJobs(userId: number): Promise<any[]> {
+    return await db.select().from(savedJobs).where(eq(savedJobs.userId, userId));
+  }
+
+  async saveJob(userId: number, jobId: number): Promise<any> {
+    const [saved] = await db.insert(savedJobs).values({ userId, jobId }).returning();
+    return saved;
+  }
+
+  async unsaveJob(userId: number, jobId: number): Promise<void> {
+    await db.delete(savedJobs).where(and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)));
+  }
+
+  async getBlogPosts(): Promise<any[]> {
+    return await db.select().from(blogPosts).where(eq(blogPosts.isPublished, true));
+  }
+
+  async getBlogPostBySlug(slug: string): Promise<any | undefined> {
+    const [post] = await db.select().from(blogPosts).where(eq(blogPosts.slug, slug));
+    return post;
+  }
+
+  async createBlogPost(post: any): Promise<any> {
+    const [created] = await db.insert(blogPosts).values(post).returning();
     return created;
   }
 }
