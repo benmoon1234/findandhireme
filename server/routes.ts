@@ -207,6 +207,136 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  // ----- Employer-specific Routes -----
+  app.get("/api/employer/profile", requireAuth, async (req, res) => {
+    const employer = await storage.getEmployerByUserId(req.session.userId!);
+    if (!employer) return res.status(404).json({ message: "Employer profile not found" });
+    res.json(employer);
+  });
+
+  app.get("/api/employer/jobs", requireAuth, async (req, res) => {
+    const employer = await storage.getEmployerByUserId(req.session.userId!);
+    if (!employer) return res.status(404).json({ message: "Employer profile not found" });
+    const allJobs = await storage.getJobs();
+    const myJobs = allJobs.filter(j => j.employerId === employer.id);
+    res.json(myJobs);
+  });
+
+  app.get("/api/employer/applications", requireAuth, async (req, res) => {
+    const employer = await storage.getEmployerByUserId(req.session.userId!);
+    if (!employer) return res.status(404).json({ message: "Employer profile not found" });
+    const allJobs = await storage.getJobs();
+    const myJobIds = allJobs.filter(j => j.employerId === employer.id).map(j => j.id);
+    const apps = await storage.getApplicationsByJobIds(myJobIds);
+    res.json(apps);
+  });
+
+  // ----- Admin Routes -----
+  app.get("/api/admin/stats", async (req, res, next) => {
+    await requireRole(req, res, next, ["SUPER_ADMIN"]);
+  }, async (req, res) => {
+    const userCount = await storage.getUserCount();
+    const allJobs = await storage.getJobs();
+    const activeJobs = allJobs.filter(j => j.status === "ACTIVE").length;
+    const allApps = await storage.getApplications();
+    res.json({ totalUsers: userCount, activeJobs, totalJobs: allJobs.length, totalApplications: allApps.length });
+  });
+
+  app.get("/api/admin/users", async (req, res, next) => {
+    await requireRole(req, res, next, ["SUPER_ADMIN"]);
+  }, async (req, res) => {
+    const allUsers = await storage.getAllUsers();
+    const safeUsers = allUsers.map(({ hashedPassword, ...u }) => u);
+    res.json(safeUsers);
+  });
+
+  app.patch("/api/employers/:id/verify", async (req, res, next) => {
+    await requireRole(req, res, next, ["SUPER_ADMIN"]);
+  }, async (req, res) => {
+    const { verified } = req.body;
+    const updated = await storage.updateEmployer(Number(req.params.id), {
+      verified: verified === true,
+    } as any);
+    if (!updated) return res.status(404).json({ message: "Employer not found" });
+    res.json(updated);
+  });
+
+  app.patch("/api/applications/:id/status", requireAuth, async (req, res) => {
+    const { status } = req.body;
+    const validStatuses = ["NEW", "REVIEWING", "INTERVIEW", "REJECTED", "OFFERED"];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    const user = await storage.getUser(req.session.userId!);
+    if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+    if (user.role === "SUPER_ADMIN") {
+      const updated = await storage.updateApplicationStatus(Number(req.params.id), status);
+      if (!updated) return res.status(404).json({ message: "Application not found" });
+      return res.json(updated);
+    }
+
+    if (user.role === "EMPLOYER") {
+      const employer = await storage.getEmployerByUserId(user.id);
+      if (!employer) return res.status(403).json({ message: "Forbidden" });
+      const allJobs = await storage.getJobs();
+      const myJobIds = allJobs.filter(j => j.employerId === employer.id).map(j => j.id);
+      const apps = await storage.getApplicationsByJobIds(myJobIds);
+      const app = apps.find(a => a.id === Number(req.params.id));
+      if (!app) return res.status(403).json({ message: "Forbidden" });
+      const updated = await storage.updateApplicationStatus(Number(req.params.id), status);
+      if (!updated) return res.status(404).json({ message: "Application not found" });
+      return res.json(updated);
+    }
+
+    return res.status(403).json({ message: "Forbidden" });
+  });
+
+  // ----- Seeker Profile Routes -----
+  app.get("/api/profile", requireAuth, async (req, res) => {
+    const profile = await storage.getSeekerProfile(req.session.userId!);
+    res.json(profile || null);
+  });
+
+  app.patch("/api/profile", requireAuth, async (req, res) => {
+    const profile = await storage.upsertSeekerProfile(req.session.userId!, req.body);
+    res.json(profile);
+  });
+
+  app.post("/api/profile/cv", requireAuth, async (req, res) => {
+    if (!req.files || !req.files.cv) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    const file = req.files.cv as any;
+
+    const allowedExtensions = [".pdf", ".doc", ".docx"];
+    const allowedMimes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    const ext = (file.name as string).toLowerCase().slice(file.name.lastIndexOf("."));
+    if (!allowedExtensions.includes(ext) || !allowedMimes.includes(file.mimetype)) {
+      return res.status(400).json({ message: "Only PDF, DOC, and DOCX files are allowed" });
+    }
+
+    const safeName = `cv_${req.session.userId}_${Date.now()}${ext}`;
+    const uploadPath = `uploads/${safeName}`;
+
+    const fs = await import("fs");
+    if (!fs.existsSync("uploads")) {
+      fs.mkdirSync("uploads", { recursive: true });
+    }
+
+    await file.mv(uploadPath);
+    const profile = await storage.upsertSeekerProfile(req.session.userId!, {
+      cvUrl: `/${uploadPath}`,
+      cvFileName: file.name.replace(/[/\\]/g, "_"),
+    });
+    res.json(profile);
+  });
+
   // ----- Blog Posts Routes -----
   app.get(api.blogPosts.list.path, async (req, res) => {
     const posts = await storage.getBlogPosts();

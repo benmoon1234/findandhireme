@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, MapPin, Clock, Share2, BookmarkPlus, ExternalLink, ArrowLeft, CheckCircle2, Send, X, Briefcase } from "lucide-react";
+import { Building2, MapPin, Clock, Share2, Bookmark, ExternalLink, ArrowLeft, CheckCircle2, Send, X, Briefcase, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Employer } from "@shared/schema";
 
@@ -33,10 +33,58 @@ export default function JobDetail() {
     enabled: !!user,
   });
 
+  const { data: seekerProfile } = useQuery<any>({
+    queryKey: ["/api/profile"],
+    enabled: !!user && user.role === "JOB_SEEKER",
+  });
+
   const hasApplied = existingApplications?.some(a => a.jobId === id);
 
+  const { data: savedJobsList } = useQuery<any[]>({
+    queryKey: ["/api/saved-jobs"],
+    enabled: !!user,
+  });
+
+  const isSaved = savedJobsList?.some(s => s.jobId === id) ?? false;
+
+  const saveJobMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/saved-jobs", { jobId: id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-jobs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to save job", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const unsaveJobMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/saved-jobs/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-jobs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to unsave job", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleBookmark = () => {
+    if (!user) {
+      window.location.href = "/auth";
+      return;
+    }
+    if (isSaved) {
+      unsaveJobMutation.mutate();
+    } else {
+      saveJobMutation.mutate();
+    }
+  };
+
   const applyMutation = useMutation({
-    mutationFn: async (data: { jobId: number; coverLetter?: string }) => {
+    mutationFn: async (data: { jobId: number; coverLetter?: string; cvUrl?: string }) => {
       const res = await apiRequest("POST", "/api/applications", data);
       return res.json();
     },
@@ -56,7 +104,11 @@ export default function JobDetail() {
       window.location.href = "/auth";
       return;
     }
-    applyMutation.mutate({ jobId: id, coverLetter: coverLetter || undefined });
+    applyMutation.mutate({
+      jobId: id,
+      coverLetter: coverLetter || undefined,
+      cvUrl: seekerProfile?.cvUrl || undefined,
+    });
   };
 
   if (isLoading) {
@@ -114,8 +166,17 @@ export default function JobDetail() {
                     <button data-testid="button-share" className="p-3 rounded-xl border border-border hover:bg-muted text-foreground transition-colors">
                       <Share2 className="w-5 h-5" />
                     </button>
-                    <button data-testid="button-bookmark" className="p-3 rounded-xl border border-border hover:bg-muted text-foreground transition-colors">
-                      <BookmarkPlus className="w-5 h-5" />
+                    <button
+                      data-testid="button-bookmark"
+                      onClick={handleBookmark}
+                      disabled={saveJobMutation.isPending || unsaveJobMutation.isPending}
+                      className={`p-3 rounded-xl border transition-colors ${
+                        isSaved
+                          ? 'border-primary/30 bg-primary/10 text-primary'
+                          : 'border-border hover:bg-muted text-foreground'
+                      }`}
+                    >
+                      <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
                     </button>
                   </div>
                 </div>
@@ -232,6 +293,17 @@ export default function JobDetail() {
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
+
+              {seekerProfile?.cvUrl && (
+                <div data-testid="text-cv-attached" className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 flex items-center gap-3 border border-green-200 dark:border-green-800">
+                  <FileText className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">CV attached</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 truncate">{seekerProfile.cvFileName || "Your CV"}</p>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-2">Cover Letter (Optional)</label>

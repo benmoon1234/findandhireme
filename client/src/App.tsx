@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 
+import { lazy, Suspense } from "react";
 import Home from "./pages/Home";
 import Jobs from "./pages/Jobs";
 import JobDetail from "./pages/JobDetail";
@@ -17,6 +18,7 @@ import Resources from "./pages/Resources";
 import ResourceDetail from "./pages/ResourceDetail";
 import SeekerDashboard from "./pages/dashboard/SeekerDashboard";
 import EmployerDashboard from "./pages/dashboard/EmployerDashboard";
+import PostJob from "./pages/dashboard/PostJob";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/not-found";
 
@@ -37,6 +39,9 @@ function ProtectedSeekerDashboard() {
 }
 function ProtectedEmployerDashboard() {
   return <ProtectedRoute component={EmployerDashboard} allowedRoles={["EMPLOYER"]} />;
+}
+function ProtectedPostJob() {
+  return <ProtectedRoute component={PostJob} allowedRoles={["EMPLOYER"]} />;
 }
 function ProtectedAdminDashboard() {
   return <ProtectedRoute component={AdminDashboard} allowedRoles={["SUPER_ADMIN"]} />;
@@ -61,7 +66,7 @@ function Router() {
       <Route path="/dashboard/:tab" component={ProtectedSeekerDashboard} />
 
       <Route path="/employer/dashboard" component={ProtectedEmployerDashboard} />
-      <Route path="/employer/post-job" component={ProtectedEmployerDashboard} />
+      <Route path="/employer/post-job" component={ProtectedPostJob} />
       <Route path="/employer/jobs" component={ProtectedEmployerDashboard} />
 
       <Route path="/admin" component={ProtectedAdminDashboard} />

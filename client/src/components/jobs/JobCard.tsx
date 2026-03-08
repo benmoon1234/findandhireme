@@ -1,9 +1,64 @@
 import { Link } from "wouter";
-import { MapPin, DollarSign, Clock, Building2, BookmarkPlus } from "lucide-react";
+import { MapPin, DollarSign, Clock, Building2, Bookmark } from "lucide-react";
 import type { JobListing } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/hooks/use-auth";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export function JobCard({ job, featured = false, employerName }: { job: JobListing; featured?: boolean; employerName?: string }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: savedJobs } = useQuery<any[]>({
+    queryKey: ["/api/saved-jobs"],
+    enabled: !!user,
+  });
+
+  const isSaved = savedJobs?.some(s => s.jobId === job.id) ?? false;
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/saved-jobs", { jobId: job.id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-jobs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to save job", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/saved-jobs/${job.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-jobs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to unsave job", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleBookmarkClick = (e: { stopPropagation: () => void; preventDefault: () => void }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      window.location.href = "/auth";
+      return;
+    }
+    if (isSaved) {
+      unsaveMutation.mutate();
+    } else {
+      saveMutation.mutate();
+    }
+  };
+
+  const isToggling = saveMutation.isPending || unsaveMutation.isPending;
+
   return (
     <div data-testid={`card-job-${job.id}`} className={`
       bg-card rounded-2xl p-6 relative overflow-hidden group
@@ -36,8 +91,17 @@ export function JobCard({ job, featured = false, employerName }: { job: JobListi
               </div>
             </div>
             
-            <button data-testid={`button-bookmark-${job.id}`} className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/5">
-              <BookmarkPlus className="w-5 h-5" />
+            <button
+              data-testid={`button-bookmark-${job.id}`}
+              onClick={handleBookmarkClick}
+              disabled={isToggling}
+              className={`p-2 rounded-full transition-colors ${
+                isSaved
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
+              }`}
+            >
+              <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
             </button>
           </div>
           

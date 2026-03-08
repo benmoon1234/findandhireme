@@ -31,6 +31,10 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+import fileUpload from "express-fileupload";
+app.use(fileUpload({ limits: { fileSize: 10 * 1024 * 1024 }, abortOnLimit: true }));
+app.use("/uploads", express.static("uploads"));
+
 const PgSession = connectPgSimple(session);
 app.use(
   session({
