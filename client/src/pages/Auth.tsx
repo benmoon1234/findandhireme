@@ -19,8 +19,9 @@ export default function Auth() {
     e.preventDefault();
     try {
       if (isLogin) {
-        await login({ email, password });
-        setLocation("/dashboard");
+        const user = await login({ email, password });
+        const dest = user.role === 'SUPER_ADMIN' ? '/admin' : user.role === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard';
+        setLocation(dest);
       } else {
         await register({ email, hashedPassword: password, name, role });
         setLocation(role === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard');
