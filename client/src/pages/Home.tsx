@@ -6,9 +6,11 @@ import { Footer } from "@/components/layout/Footer";
 import { JobCard } from "@/components/jobs/JobCard";
 import { useJobs } from "@/hooks/use-jobs";
 import { useQuery } from "@tanstack/react-query";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import type { Employer } from "@shared/schema";
 
 export default function Home() {
+  usePageMeta("Job Search & Recruitment Platform", "Find and hire top talent or discover your next career opportunity across US, UK, Nigeria, and remote global positions.");
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const { data: jobs, isLoading } = useJobs();

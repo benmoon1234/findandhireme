@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Building2, MapPin, Clock, Share2, Bookmark, ExternalLink, ArrowLeft, CheckCircle2, Send, X, Briefcase, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Employer } from "@shared/schema";
@@ -19,6 +20,7 @@ export default function JobDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const viewTracked = useRef(false);
+  usePageMeta(job ? `${job.title}` : "Job Details");
 
   useEffect(() => {
     if (id && !viewTracked.current) {

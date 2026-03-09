@@ -11,6 +11,7 @@ import {
   alerts,
   clickEvents,
   aggregatorPartners,
+  notifications,
   type User,
   type InsertUser,
   type JobListing,
@@ -64,6 +65,14 @@ export interface IStorage {
   recordClickEvent(data: any): Promise<any>;
   incrementAggregatorClicks(aggregatorId: number, ppcRate: number): Promise<void>;
   getAggregatorPartner(id: number): Promise<any | undefined>;
+
+  getNotifications(userId: number): Promise<any[]>;
+  getUnreadNotificationCount(userId: number): Promise<number>;
+  createNotification(data: any): Promise<any>;
+  markNotificationRead(id: number, userId: number): Promise<void>;
+  markAllNotificationsRead(userId: number): Promise<void>;
+
+  getApplicationsWithUserInfo(jobIds: number[]): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -234,6 +243,38 @@ export class DatabaseStorage implements IStorage {
   async getAggregatorPartner(id: number): Promise<any | undefined> {
     const [partner] = await db.select().from(aggregatorPartners).where(eq(aggregatorPartners.id, id));
     return partner;
+  }
+
+  async getNotifications(userId: number): Promise<any[]> {
+    return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const [result] = await db.select({ value: count() }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return result.value;
+  }
+
+  async createNotification(data: any): Promise<any> {
+    const [created] = await db.insert(notifications).values(data).returning();
+    return created;
+  }
+
+  async markNotificationRead(id: number, userId: number): Promise<void> {
+    await db.update(notifications).set({ isRead: true }).where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+  }
+
+  async markAllNotificationsRead(userId: number): Promise<void> {
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+  }
+
+  async getApplicationsWithUserInfo(jobIds: number[]): Promise<any[]> {
+    if (jobIds.length === 0) return [];
+    const apps = await db.select().from(applications).where(inArray(applications.jobId, jobIds));
+    const userIds = [...new Set(apps.map(a => a.userId))];
+    if (userIds.length === 0) return apps;
+    const appUsers = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, userIds));
+    const userMap = new Map(appUsers.map(u => [u.id, u]));
+    return apps.map(a => ({ ...a, userName: userMap.get(a.userId)?.name || `User #${a.userId}`, userEmail: userMap.get(a.userId)?.email }));
   }
 }
 

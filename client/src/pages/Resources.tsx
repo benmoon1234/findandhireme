@@ -2,10 +2,12 @@ import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useQuery } from "@tanstack/react-query";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Calendar, ArrowRight, BookOpen } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Resources() {
+  usePageMeta("Career Resources");
   const { data: posts, isLoading } = useQuery<any[]>({
     queryKey: ["/api/blog-posts"],
     queryFn: async () => {

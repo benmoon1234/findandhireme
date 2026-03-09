@@ -5,13 +5,35 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { JobListing, Application } from "@shared/schema";
+import type { JobListing } from "@shared/schema";
+
+interface ApplicationWithUser {
+  id: number;
+  jobId: number;
+  userId: number;
+  status: string;
+  coverLetter?: string | null;
+  cvUrl?: string | null;
+  appliedAt?: string | null;
+  userName?: string;
+  userEmail?: string;
+}
+
+const STATUS_OPTIONS = [
+  { value: "NEW", label: "New", color: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" },
+  { value: "REVIEWING", label: "Reviewing", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400" },
+  { value: "INTERVIEW", label: "Interview", color: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400" },
+  { value: "OFFERED", label: "Offered", color: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400" },
+  { value: "REJECTED", label: "Rejected", color: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400" },
+];
 
 export default function EmployerDashboard() {
+  usePageMeta("Employer Dashboard");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
@@ -20,7 +42,7 @@ export default function EmployerDashboard() {
     queryKey: ["/api/employer/jobs"],
   });
 
-  const { data: allApplications = [], isLoading: appsLoading } = useQuery<Application[]>({
+  const { data: allApplications = [], isLoading: appsLoading } = useQuery<ApplicationWithUser[]>({
     queryKey: ["/api/employer/applications"],
   });
 
@@ -163,7 +185,7 @@ function JobRow({
   isDeleting,
 }: {
   job: JobListing;
-  applicants: Application[];
+  applicants: ApplicationWithUser[];
   isExpanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
@@ -242,50 +264,7 @@ function JobRow({
                   Applicants ({applicants.length})
                 </p>
                 {applicants.map((app) => (
-                  <Card key={app.id} className="p-4" data-testid={`card-applicant-${app.id}`}>
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <div>
-                        <p className="font-medium text-sm" data-testid={`text-applicant-id-${app.id}`}>
-                          Applicant #{app.userId}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Applied {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : "N/A"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={
-                            app.status === "NEW"
-                              ? "default"
-                              : app.status === "REVIEWED"
-                                ? "secondary"
-                                : app.status === "SHORTLISTED"
-                                  ? "default"
-                                  : "secondary"
-                          }
-                          data-testid={`badge-app-status-${app.id}`}
-                        >
-                          {app.status}
-                        </Badge>
-                        {app.cvUrl && (
-                          <a
-                            href={app.cvUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline"
-                            data-testid={`link-cv-${app.id}`}
-                          >
-                            View CV
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    {app.coverLetter && (
-                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2" data-testid={`text-cover-letter-${app.id}`}>
-                        {app.coverLetter}
-                      </p>
-                    )}
-                  </Card>
+                  <ApplicantCard key={app.id} app={app} />
                 ))}
               </div>
             )}
@@ -293,5 +272,73 @@ function JobRow({
         </tr>
       )}
     </>
+  );
+}
+
+function ApplicantCard({ app }: { app: ApplicationWithUser }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const statusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      const res = await apiRequest("PATCH", `/api/applications/${app.id}/status`, { status: newStatus });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employer/applications"] });
+      toast({ title: "Status updated", description: `Application status changed.` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    },
+  });
+
+  const currentStatus = STATUS_OPTIONS.find(s => s.value === app.status) || STATUS_OPTIONS[0];
+
+  return (
+    <Card className="p-4" data-testid={`card-applicant-${app.id}`}>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="font-medium text-sm" data-testid={`text-applicant-name-${app.id}`}>
+            {app.userName || `User #${app.userId}`}
+          </p>
+          {app.userEmail && (
+            <p className="text-xs text-muted-foreground">{app.userEmail}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Applied {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : "N/A"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            data-testid={`select-status-${app.id}`}
+            value={app.status}
+            onChange={(e) => statusMutation.mutate(e.target.value)}
+            disabled={statusMutation.isPending}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 ${currentStatus.color}`}
+          >
+            {STATUS_OPTIONS.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+          {app.cvUrl && (
+            <a
+              href={app.cvUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline"
+              data-testid={`link-cv-${app.id}`}
+            >
+              View CV
+            </a>
+          )}
+        </div>
+      </div>
+      {app.coverLetter && (
+        <p className="mt-2 text-sm text-muted-foreground line-clamp-2" data-testid={`text-cover-letter-${app.id}`}>
+          {app.coverLetter}
+        </p>
+      )}
+    </Card>
   );
 }

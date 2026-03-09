@@ -171,6 +171,22 @@ export async function registerRoutes(
     try {
       const input = api.applications.create.input.parse(req.body);
       const application = await storage.createApplication({ ...input, userId: req.session.userId });
+      try {
+        const job = await storage.getJob(input.jobId);
+        if (job && job.employerId) {
+          const employer = await storage.getEmployers();
+          const emp = employer.find(e => e.id === job.employerId);
+          if (emp) {
+            await storage.createNotification({
+              userId: emp.userId,
+              title: "New Application Received",
+              message: `A new application has been submitted for "${job.title}".`,
+              type: "NEW_APPLICANT",
+              relatedId: application.id,
+            });
+          }
+        }
+      } catch (e) { console.error("Notification creation error:", e); }
       res.status(201).json(application);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -214,6 +230,21 @@ export async function registerRoutes(
     res.json(employer);
   });
 
+  app.patch("/api/employer/profile", requireAuth, async (req, res) => {
+    const employer = await storage.getEmployerByUserId(req.session.userId!);
+    if (!employer) return res.status(404).json({ message: "Employer profile not found" });
+    const { companyName, description, industry, website, location, country } = req.body;
+    const updates: any = {};
+    if (companyName !== undefined) updates.companyName = companyName;
+    if (description !== undefined) updates.description = description;
+    if (industry !== undefined) updates.industry = industry;
+    if (website !== undefined) updates.website = website;
+    if (location !== undefined) updates.location = location;
+    if (country !== undefined) updates.country = country;
+    const updated = await storage.updateEmployer(employer.id, updates);
+    res.json(updated);
+  });
+
   app.get("/api/employer/jobs", requireAuth, async (req, res) => {
     const employer = await storage.getEmployerByUserId(req.session.userId!);
     if (!employer) return res.status(404).json({ message: "Employer profile not found" });
@@ -227,7 +258,7 @@ export async function registerRoutes(
     if (!employer) return res.status(404).json({ message: "Employer profile not found" });
     const allJobs = await storage.getJobs();
     const myJobIds = allJobs.filter(j => j.employerId === employer.id).map(j => j.id);
-    const apps = await storage.getApplicationsByJobIds(myJobIds);
+    const apps = await storage.getApplicationsWithUserInfo(myJobIds);
     res.json(apps);
   });
 
@@ -283,10 +314,20 @@ export async function registerRoutes(
       const allJobs = await storage.getJobs();
       const myJobIds = allJobs.filter(j => j.employerId === employer.id).map(j => j.id);
       const apps = await storage.getApplicationsByJobIds(myJobIds);
-      const app = apps.find(a => a.id === Number(req.params.id));
-      if (!app) return res.status(403).json({ message: "Forbidden" });
+      const appRecord = apps.find(a => a.id === Number(req.params.id));
+      if (!appRecord) return res.status(403).json({ message: "Forbidden" });
       const updated = await storage.updateApplicationStatus(Number(req.params.id), status);
       if (!updated) return res.status(404).json({ message: "Application not found" });
+      const job = allJobs.find(j => j.id === appRecord.jobId);
+      try {
+        await storage.createNotification({
+          userId: appRecord.userId,
+          title: "Application Status Updated",
+          message: `Your application for "${job?.title || 'a position'}" has been updated to ${status}.`,
+          type: "APPLICATION_STATUS",
+          relatedId: appRecord.id,
+        });
+      } catch (e) { console.error("Notification creation error:", e); }
       return res.json(updated);
     }
 
@@ -443,6 +484,27 @@ export async function registerRoutes(
     } catch {
       res.json({ tracked: false });
     }
+  });
+
+  // ----- Notification Routes -----
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    const items = await storage.getNotifications(req.session.userId!);
+    res.json(items);
+  });
+
+  app.get("/api/notifications/unread-count", requireAuth, async (req, res) => {
+    const count = await storage.getUnreadNotificationCount(req.session.userId!);
+    res.json({ count });
+  });
+
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    await storage.markNotificationRead(Number(req.params.id), req.session.userId!);
+    res.json({ success: true });
+  });
+
+  app.patch("/api/notifications/read-all", requireAuth, async (req, res) => {
+    await storage.markAllNotificationsRead(req.session.userId!);
+    res.json({ success: true });
   });
 
   // ----- Blog Posts Routes -----

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { DashboardLayout } from "./DashboardLayout";
 import { FileText, Briefcase, Bookmark, CheckCircle2, ExternalLink, Upload, File, Loader2, Bell, User, Save, X, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useJobs } from "@/hooks/use-jobs";
@@ -702,6 +703,7 @@ function SavedJobsTab({ savedJobs, jobs, employers }: any) {
 }
 
 export default function SeekerDashboard() {
+  usePageMeta("Dashboard");
   const { user } = useAuth();
   const { data: jobs } = useJobs();
   const { toast } = useToast();

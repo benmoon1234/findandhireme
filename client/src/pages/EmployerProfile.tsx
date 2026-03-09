@@ -4,6 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 import { JobCard } from "@/components/jobs/JobCard";
 import { useQuery } from "@tanstack/react-query";
 import { useJobs } from "@/hooks/use-jobs";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Building2, MapPin, Globe, CheckCircle2, ExternalLink, ArrowLeft } from "lucide-react";
 import type { Employer } from "@shared/schema";
 
@@ -21,6 +22,7 @@ export default function EmployerProfile() {
     enabled: !!slug,
   });
 
+  usePageMeta(employer ? employer.companyName : "Employer Profile");
   const { data: allJobs } = useJobs();
   const employerJobs = allJobs?.filter(j => j.employerId === employer?.id) || [];
 

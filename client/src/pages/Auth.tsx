@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Briefcase, Github, Mail, Lock, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function Auth() {
+  usePageMeta("Sign In");
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

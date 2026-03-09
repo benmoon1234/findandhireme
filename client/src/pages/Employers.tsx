@@ -2,10 +2,12 @@ import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useQuery } from "@tanstack/react-query";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Building2, MapPin, Globe, CheckCircle2, ExternalLink } from "lucide-react";
 import type { Employer } from "@shared/schema";
 
 export default function Employers() {
+  usePageMeta("Top Employers");
   const { data: employers, isLoading } = useQuery<Employer[]>({
     queryKey: ["/api/employers"],
     queryFn: async () => {

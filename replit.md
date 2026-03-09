@@ -25,14 +25,14 @@ Full-stack job search and recruitment platform with multi-role support (Job Seek
 - `client/src/components/ThemeToggle.tsx` — Sun/Moon toggle button
 
 ## Database Tables
-users, job_seeker_profiles, employers, aggregator_partners, job_listings, applications, alerts, saved_jobs, invoices, blog_posts, audit_logs, click_events, user_sessions
+users, job_seeker_profiles, employers, aggregator_partners, job_listings, applications, alerts, saved_jobs, invoices, blog_posts, audit_logs, click_events, notifications, user_sessions
 
 ## Roles
 - JOB_SEEKER, EMPLOYER, SUPER_ADMIN
 
 ## Key Pages
 - `/` — Home (hero, featured jobs, how-it-works, CTA)
-- `/jobs` — Job search with filters (keyword, location, country, type, experience, remote, sort)
+- `/jobs` — Job search with filters, pagination (12/page)
 - `/jobs/:id` — Job detail with apply modal, save/bookmark toggle, view count tracking
 - `/jobs/us`, `/jobs/uk`, `/jobs/nigeria` — Country-specific job pages
 - `/auth` — Login/Register
@@ -46,8 +46,9 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 - `/dashboard/applications` — Full applications list
 - `/dashboard/saved-jobs` — Saved jobs page
 - `/dashboard/alerts` — Alert preferences (frequency, channels) and alert history
-- `/employer/dashboard` — Employer dashboard (real stats, job listings, applicant management)
+- `/employer/dashboard` — Employer dashboard (real stats, job listings, applicant management with status dropdown)
 - `/employer/post-job` — Post new job form
+- `/employer/settings` — Employer company profile editing (name, description, industry, website, location, country)
 - `/admin` — Super admin panel (real stats, employer verification, user list, job table)
 
 ## API Routes
@@ -64,7 +65,7 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 
 ### Employers
 - GET /api/employers, GET /api/employers/:slug, POST /api/employers
-- GET /api/employer/profile, GET /api/employer/jobs, GET /api/employer/applications
+- GET /api/employer/profile, PATCH /api/employer/profile, GET /api/employer/jobs, GET /api/employer/applications (includes user names)
 
 ### Applications
 - GET /api/applications, POST /api/applications, PATCH /api/applications/:id/status
@@ -81,6 +82,10 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 
 ### Admin
 - GET /api/admin/stats, GET /api/admin/users, PATCH /api/employers/:id/verify
+
+### Notifications
+- GET /api/notifications, GET /api/notifications/unread-count
+- PATCH /api/notifications/:id/read, PATCH /api/notifications/read-all
 
 ### Blog
 - GET /api/blog-posts, GET /api/blog-posts/:slug
@@ -122,3 +127,13 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 - Aggregator PPC Click Tracking (click events, view counts, aggregator billing): Complete
 - Dark Mode Toggle (ThemeProvider, ThemeToggle, localStorage persistence): Complete
 - Mobile Dashboard Navigation (hamburger menu with all sidebar links): Complete
+- SEO Meta Tags (usePageMeta hook, OG tags, unique page titles): Complete
+- Employer Profile Editing (/employer/settings): Complete
+- Application Status Management UI (status dropdown, applicant names): Complete
+- Search Pagination (12 jobs/page with page controls): Complete
+- In-App Notification System (bell icon, unread count, notification panel): Complete
+
+## Additional Features
+- `client/src/hooks/use-page-meta.ts` — SEO hook for dynamic page titles + meta descriptions
+- Notifications created automatically when: application status changes (notifies seeker), new application received (notifies employer)
+- DashboardLayout includes notification bell with unread count badge and dropdown panel

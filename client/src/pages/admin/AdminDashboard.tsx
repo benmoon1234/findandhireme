@@ -3,6 +3,7 @@ import { useJobs } from "@/hooks/use-jobs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Users, Briefcase, TrendingUp, FileText, CheckCircle2, XCircle, Eye, Shield, ShieldCheck, ShieldX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ interface AdminStats {
 }
 
 export default function AdminDashboard() {
+  usePageMeta("Admin Dashboard");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: jobs } = useJobs();

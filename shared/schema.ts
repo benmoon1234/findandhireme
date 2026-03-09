@@ -178,6 +178,17 @@ export const clickEvents = pgTable("click_events", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(),
+  relatedId: integer("related_id"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, emailVerified: true, lastLoginAt: true });
 export const insertJobListingSchema = createInsertSchema(jobListings).omit({ id: true, postedAt: true, viewCount: true, clickCount: true });
 export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true, appliedAt: true, updatedAt: true });

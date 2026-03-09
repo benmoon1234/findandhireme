@@ -18,6 +18,7 @@ import Resources from "./pages/Resources";
 import ResourceDetail from "./pages/ResourceDetail";
 import SeekerDashboard from "./pages/dashboard/SeekerDashboard";
 import EmployerDashboard from "./pages/dashboard/EmployerDashboard";
+import EmployerSettings from "./pages/dashboard/EmployerSettings";
 import PostJob from "./pages/dashboard/PostJob";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/not-found";
@@ -42,6 +43,9 @@ function ProtectedEmployerDashboard() {
 }
 function ProtectedPostJob() {
   return <ProtectedRoute component={PostJob} allowedRoles={["EMPLOYER"]} />;
+}
+function ProtectedEmployerSettings() {
+  return <ProtectedRoute component={EmployerSettings} allowedRoles={["EMPLOYER"]} />;
 }
 function ProtectedAdminDashboard() {
   return <ProtectedRoute component={AdminDashboard} allowedRoles={["SUPER_ADMIN"]} />;
@@ -68,6 +72,7 @@ function Router() {
       <Route path="/employer/dashboard" component={ProtectedEmployerDashboard} />
       <Route path="/employer/post-job" component={ProtectedPostJob} />
       <Route path="/employer/jobs" component={ProtectedEmployerDashboard} />
+      <Route path="/employer/settings" component={ProtectedEmployerSettings} />
 
       <Route path="/admin" component={ProtectedAdminDashboard} />
       <Route path="/admin/:tab" component={ProtectedAdminDashboard} />
