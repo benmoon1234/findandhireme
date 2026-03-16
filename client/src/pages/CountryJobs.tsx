@@ -236,7 +236,7 @@ function AdzunaJobCard({ job, currency }: { job: AdzunaResult; currency: string 
   );
 }
 
-function AdzunaFeedSection({ country, currency, testPrefix }: { country: string; currency: string; testPrefix: string }) {
+function AdzunaFeedSection({ country, currency, testPrefix, enabled = true }: { country: string; currency: string; testPrefix: string; enabled?: boolean }) {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -254,6 +254,7 @@ function AdzunaFeedSection({ country, currency, testPrefix }: { country: string;
       if (!res.ok) throw new Error("Failed to fetch jobs");
       return res.json();
     },
+    enabled,
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -546,7 +547,7 @@ function UKJobsPage() {
               )}
           </div>
           <div className={activeTab === "adzuna" ? "" : "hidden"}>
-            <AdzunaFeedSection country="gb" currency="GBP" testPrefix="adzuna-uk" />
+            <AdzunaFeedSection country="gb" currency="GBP" testPrefix="adzuna-uk" enabled={activeTab === "adzuna"} />
           </div>
 
           {dbJobs.length > 0 && (
