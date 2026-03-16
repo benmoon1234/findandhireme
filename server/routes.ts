@@ -507,6 +507,53 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // ----- WhatJobs Feed API Proxy -----
+  app.get("/api/whatjobs", async (req, res) => {
+    try {
+      const publisherId = process.env.WHATJOBS_PUBLISHER_ID;
+      if (!publisherId) {
+        return res.status(503).json({ message: "WhatJobs integration not configured" });
+      }
+
+      const keyword = ((req.query.keyword as string) || "").slice(0, 200);
+      const location = ((req.query.location as string) || "").slice(0, 200);
+      const rawPage = parseInt(req.query.page as string, 10);
+      const page = String(isNaN(rawPage) || rawPage < 1 ? 1 : Math.min(rawPage, 10000));
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = String(isNaN(rawLimit) || rawLimit < 1 ? 20 : Math.min(rawLimit, 50));
+
+      const userIp = req.ip || "0.0.0.0";
+      const userAgent = req.headers["user-agent"] || "";
+
+      const params = new URLSearchParams({
+        publisher: publisherId,
+        user_ip: userIp,
+        user_agent: userAgent,
+        keyword,
+        location,
+        page,
+        limit,
+      });
+
+      const apiUrl = `https://api.whatjobs.com/api/v1/jobs.json?${params.toString()}`;
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        const status = response.status;
+        if (status === 503) {
+          return res.status(503).json({ message: "WhatJobs API is in maintenance mode" });
+        }
+        return res.status(status).json({ message: "WhatJobs API request failed" });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      console.error("WhatJobs API proxy error:", err);
+      res.status(500).json({ message: "Failed to fetch jobs from WhatJobs" });
+    }
+  });
+
   // ----- Blog Posts Routes -----
   app.get(api.blogPosts.list.path, async (req, res) => {
     const posts = await storage.getBlogPosts();

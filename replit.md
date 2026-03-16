@@ -87,6 +87,12 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 - GET /api/notifications, GET /api/notifications/unread-count
 - PATCH /api/notifications/:id/read, PATCH /api/notifications/read-all
 
+### WhatJobs Feed API (UK)
+- GET /api/whatjobs — Proxy to WhatJobs publisher feed API (keyword, location, page, limit)
+  - Forwards user IP and user-agent for tracking
+  - Publisher ID from WHATJOBS_PUBLISHER_ID env var (6585)
+  - Input validated: page 1-10000, limit 1-50, keyword/location max 200 chars
+
 ### Blog
 - GET /api/blog-posts, GET /api/blog-posts/:slug
 
@@ -132,6 +138,7 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 - Application Status Management UI (status dropdown, applicant names): Complete
 - Search Pagination (12 jobs/page with page controls): Complete
 - In-App Notification System (bell icon, unread count, notification panel): Complete
+- WhatJobs UK Feed Integration (/jobs/uk with live WhatJobs API results, search, pagination): Complete
 
 ## Additional Features
 - `client/src/hooks/use-page-meta.ts` — SEO hook for dynamic page titles + meta descriptions
