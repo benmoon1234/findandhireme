@@ -1,0 +1,49 @@
+Overview
+Quickstart
+Expert user? Allergic to lengthy documentation sites? Follow these steps:
+
+Register to receive an app_key and app_id
+Use the Interactive Endpoint Documentation to make test calls and see details about all endpoints, parameters, response codes.
+Adzuna has created a RESTful API. Currently, the API consists of nine endpoints that can be split into the following sections:
+
+Get ads
+The search endpoints allow you to query our database of job ads.
+Get employment data
+Four endpoints expose the latest trends in salaries and vacancies. Historical salary data shows how salaries are changing over time. The histogram returns the distribution of current salaries. And the regional data and top companies endpoints show the current number of vacancies by region or company.
+Categories
+Use the categories endpoint to see the categories that Adzuna applies to jobs.
+Version
+Things change! Call the version endpoint to find out which API version you're querying.
+Querying the API
+The root URL of the API is located at:
+
+https://api.adzuna.com/v1/api
+Notice that it needs to be appended with the version you're querying. You then concatenate the endpoint you want to query, for example to get Jobs listings in the UK:
+
+https://api.adzuna.com/v1/api/jobs/gb/search/1
+... and finally you will always need to pass two obligatory parameters. The app_id and app_key, making the final call look like this:
+
+https://api.adzuna.com/v1/api/jobs/gb/search/1?app_id={YOUR_APP_ID}&app_key={YOUR_APP_KEY}
+Data encoding
+Every time you make a query the response is returned as an object serialised using JSON, JSONP or XML encoding. The format returned is determined by the Accept HTTP header, but also be set by the content-type query string parameter which overrides the Accept header.
+
+JSON
+To receive JSON, set your Accept header to application/json. The data will then be returned as UTF-8 JSON. Some characters may be escaped as \uXXXX, as described in the JSON specification: http://www.json.org/
+
+JSONP
+To receive JSON, set your Accept header to application/jsonp or alternatively text/javascript. If you do not specify another encoding, the API will default to this, making this work from a <script> tag. This works similarly to JSON, but causes a function call to be prepended. Specify the function to call with the callback query string parameter. More information on https://www.w3schools.com/js/js_json_jsonp.asp/
+
+This is intended to be used for creating widgets. We have an example of this in action.
+
+XML
+The format of the returned XML has not yet been finalised, please consider using the JSON formats, or contact Adzuna before use.
+
+HTML
+For convenience, data is also available as text/html, and will be rendered as such if an API endpoint is accessed using an ordinary web browser.
+
+XLSX
+Some data is available in spreadsheet form, as a .xlsx file which may be opened using most spreadsheet software including Microsoft Excel. The MIME type to request in your Accept header is application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.
+
+Errors
+If your request cannot be handled, an HTTP response code other than 200 will be returned and the error will be serialised in the serialisation format requested. More details on the Interactive Endpoint Documentation.
+
