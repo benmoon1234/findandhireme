@@ -76,9 +76,14 @@ export default function Home() {
           {/* Country Tabs */}
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <span className="text-sm text-muted-foreground py-2 mr-2">Popular:</span>
-            {['🇺🇸 US Jobs', '🇬🇧 UK Jobs', '🇳🇬 Nigeria Jobs', '🌍 Global & Remote'].map((tab) => (
-              <Link key={tab} href="/jobs" className="px-4 py-2 rounded-full border border-border bg-card text-sm font-medium hover:border-primary/50 hover:text-primary transition-all">
-                {tab}
+            {[
+              { label: '🇺🇸 US Jobs', href: '/jobs/us' },
+              { label: '🇬🇧 UK Jobs', href: '/jobs/uk' },
+              { label: '🇳🇬 Nigeria Jobs', href: '/jobs/nigeria' },
+              { label: '🌍 Global & Remote', href: '/jobs' },
+            ].map((tab) => (
+              <Link key={tab.label} href={tab.href} className="px-4 py-2 rounded-full border border-border bg-card text-sm font-medium hover:border-primary/50 hover:text-primary transition-all">
+                {tab.label}
               </Link>
             ))}
           </div>
