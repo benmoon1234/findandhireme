@@ -143,7 +143,7 @@ function UKJobsPage() {
     },
   });
 
-  const { data: allJobs, isLoading: dbLoading } = useJobs();
+  const { data: allJobs } = useJobs();
   const dbJobs = allJobs?.filter(j => j.country === "UK") || [];
 
   const handleSearch = (e: React.FormEvent) => {
