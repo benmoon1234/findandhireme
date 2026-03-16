@@ -1,0 +1,186 @@
+Publisher Dashboard
+Logged in as : partners@findandhireme.com
+Site: uk.whatjobs.com
+Publisher ID:6585 *(Your Publisher ID is unique for each country)
+
+
+We encourage all publishers to try our real time live job FeedAPI, which provides excellent content for your users. The live job FeedAPI is fully customisable and easy to use. We also provide accurate reporting on all user activity via your dashboard.
+
+This document will guide you through the FeedAPI details and implementation process. At the end of this document, you can find sample codes.
+
+Whatjobs provides an easy to use API allowing publishers to send the requests through the REST interface.
+
+The FeedAPI is based on the HTTP protocol. This means that any software you write which uses FeedAPI should send HTTP GET request.
+
+
+Responses formats
+To provide ease of use, the FeedAPI returns the responses in JSON or XML formats. To receive the desired response you need to send the requests to one of the following endpoints.
+
+Type	URL
+XML Response	/api/v1/jobs.xml
+JSON Response	/api/v1/jobs.json
+
+Request parameters
+On each HTTP request, you should send some parameters, many of which are optional. You can find the list of these parameters in the table below.
+
+Status	Type	Name	Description
+Mandatory	Number	publisher	It is a unique ID assigned to your account and should always have this value: 6585 (Returns error on invalid values)
+Mandatory	String	user_ip	The IP address of the user viewing your page. (Ignores tracking on invalid values)
+Optional	String	user_agent	The user's browser agent. (Providing user agent will improve the tracking on the networks with shared IP)
+Optional	String	keyword	This parameter should contain the users search phrase. The FeedAPI will return adverts that contain these terms.
+Optional	String	location	Use this parameter to filter adverts by location or postcode.
+Optional	Number	radius	This parameter indicates the distance in miles to do Geo-distance match based on the provided location.
+Optional	Number	limit	Set this parameter to a positive number to define the maximum number of adverts per result. The default is 20, the maximum is 50. (Returns error on invalid values)
+Optional	Number	page	It allows you to send the request for the next pages. The default is 1. (Returns error on invalid values)
+Please make sure to encode the GET parameters and also use UTF-8 encoding on the requests.
+
+
+Job By Email
+You can also use the FeedAPI to send the jobs to users by email. Job by email is a solution for those who want to send a daily email to the users with the latest jobs. This option lets you personalise the searches for a user by sending a unique user id on each API request. In this way, the FeedAPI result will not be the jobs that have been returned to the user on the previous call. This behaviour will be the same for the next day request, meaning the result won't contain any jobs previously sent to the user, displaying only fresh job results.
+
+Status	Type	Name	Description
+Optional	String	unique_id	It should be a unique id per each request. You can use the user email address or the user unique id in your database.
+
+Response sample
+HTTP response status codes indicate whether the request has been successfully completed. It will be 200 on success or 422 on failed requests and 503 when application is on maintenance mode.
+
+XML:
+<?xml version="1.0" encoding="UTF-8"?>
+            <jobs xmlns="{{ url('XMLSchema') }}"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="{{ url('XMLSchema') }} {{ secure_asset('XMLSchemaFeedAPI.xsd') }}">
+            <total><![CDATA[5148]]></total>
+            <per_page><![CDATA[1]]></per_page>
+            <current_page><![CDATA[1]]></current_page>
+            <last_page><![CDATA[5148]]></last_page>
+            <from><![CDATA[1]]></from>
+            <to><![CDATA[1]]></to>
+            <data>
+            <job>
+            <title><![CDATA[Sales Executive]]></title>
+            <company><![CDATA[]]></company>
+            <location><![CDATA[London Greater London England]]></location>
+            <postcode><![CDATA[WC2B]]></postcode>
+            <snippet><![CDATA[ ... - OTE + Company Car Monday to Saturday with a day off mid week / Rota Sunday (1 in 3) We are currently seeking a Car <span class="highlighted">Sales</span> Executive to join our clients prestige car dealership in North West London. Our client is looking for a dynamic and proactive individual with experience in automotive ... ]]></snippet>
+            <url><![CDATA[https://uk.whatjobs.com/pub_jbe__cpl__43738757__3012]]></url>
+            <onmousedown><![CDATA[pnpClick(this,'57e00ef02f868');]]></onmousedown>
+            <job_type><![CDATA[permanent]]></job_type>
+            <salary><![CDATA[15,000-20,000 per annum]]></salary>
+            <logo><![CDATA[]]></logo>
+            <age><![CDATA[7 hours ago]]></age>
+            <age_days><![CDATA[0]]></age_days>
+        </job>
+    </data>
+</jobs>
+JSON:
+{
+    "total": 5148,
+    "per_page": 1,
+    "current_page": 1,
+    "last_page": 5148,
+    "from": 1,
+    "to": 1,
+    "data": [{
+        "url": "https://uk.whatjobs.com/pub_jbe__cpl__43738757__3012",
+        "title": "Sales Executive",
+        "job_type": "permanent",
+        "onmousedown": "pnpClick(this,'57e00ef02f868');",
+        "logo": null,
+        "age": "7 hours ago",
+        "age_days": 0,
+        "snippet": " ... - OTE + Company Car Monday to Saturday with a day off mid week \/ Rota Sunday (1 in 3) We are currently seeking a Car <span class=\"highlighted\">Sales<\/span> Executive to join our clients prestige car dealership in North West London. Our client is looking for a dynamic and proactive individual with experience in automotive ... ",
+        "salary": "15,000-20,000 per annum",
+        "location": "London Greater London England",
+        "postcode": "WC2B",
+        "company": null
+    }]
+}
+
+//publisher terms of use link
+Also, each returned result, contains an onmousedown JavaScript code that should be added to the on mouse down event of the job advert link.
+
+The final rendered HTML should be similar to the code below. Also you can test the final result by using the URL Validator.
+
+<div class="job-row">
+    <h4 class="job-title">
+        <a onmousedown="pnpClick(this,'57e00ef02f868');" href="{{ url('/') }}/dispatch/job/publisher/sales-executive-193?pid=1&psrc=feed&ptkn=b497217a9f4aa019e64e6def3f26ca15a08ab5f1&ptms=eyJpdiI6ImUzU1JCZlwvSDlUUERHZlwvaTZXVUFnXC8rZWVYZlJJQXhVMTdwMThMa1BZM1E9IiwidmFsdWUiOiJ3WVpncUpmWXBtcnRsam9cL051YVpYVFVyODBsZmxzcTZBRVk2RDJIR0FcL2c9IiwibWFjIjoiMWY3MTQ4MDliMzc5NmYwNzVkM2UyYjRiNDNmZTYxYjFhNmNiMGIxYTMwNzJiZGExOTkxYzU3OGZjMTljMTIxOCJ9">
+            Sales Executive
+        </a>
+    </h4>
+    <div class="job-description"> ... - OTE + Company Car Monday to Saturday with a day off mid week / Rota Sunday (1 in 3) We are currently seeking a Car <span class="highlighted">Sales</span> Executive to join our clients prestige car dealership in North West London. Our client is looking for a dynamic and proactive individual with experience in automotive ... </div>
+    <div class="more-info">
+        <span class="company-name"></span>
+        <span class="location">London Greater London England</span>
+        <span class="postcode">WC2B</span>
+        <span class="job-type">permanent</span>
+        <span class="salary">15,000-20,000 per annum</span>
+    </div>
+</div>
+
+Code samples
+Python:
+# Import libraries
+import requests
+import urllib
+
+# Set parameters
+parameters = { 'publisher' : 6585, 'user_ip' : '102.90.96.38', 'user_agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'keyword' : 'sales', 'location' : 'london', 'limit' : '', 'page' : '' }
+
+# Set URL
+url = '/api/jobs.xml?%s' % urllib.urlencode(parameters)
+
+# Exec and return the result
+response = requests.get(url)
+
+# Dump the result
+print response.content
+PHP:
+// Set parameters
+$parameters = array(
+            'publisher' => 6585,
+            'user_ip' => '102.90.96.38',
+            'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+            'keyword' => 'sales',
+            'location' => 'london',
+            'limit' => '',
+            'page' => '',
+);
+
+// Create curl resource
+$curl = curl_init();
+
+// Set URL
+curl_setopt($curl, CURLOPT_URL, '/api/jobs.xml' . '?' . http_build_query($parameters));
+
+// Return the transfer as a string
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+
+// Exec and return the response
+$response = curl_exec($curl);
+
+// Close curl resource
+curl_close($curl);
+
+// Dump the response
+var_dump($response);
+CURL:
+curl -G "/api/jobs.xml" \
+            --data-urlencode "publisher=6585" \
+            --data-urlencode "user_ip=102.90.96.38" \
+            --data-urlencode "user_agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36" \
+            --data-urlencode "keyword=sales" \
+            --data-urlencode "location=london" \
+            --data-urlencode "limit=" \
+            --data-urlencode "page=" \ 
+Encoded URL:
+https://api.whatjobs.com/api/v1/jobs.xml?publisher=6585&user_ip=102.90.96.38&user_agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36&keyword=sales&location=london&limit=&page=
+
+URL Validator
+Once everything was ready, you can use the URL Validation Tool to verify that the tracking code is working fine.
+
+To check that:
+
+Navigate to the rendered page on your website using a browser.
+Copy one of the URL by right-clicking on the link and choosing the copy option from the browser menu.
+Paste the URL into the URL Validation Tool and click on Validate button.
+The tool will show error message in case of any issue or confirmation message when all is working fine.
