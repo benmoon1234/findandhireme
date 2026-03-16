@@ -389,7 +389,6 @@ function UKJobsPage() {
       if (!res.ok) throw new Error("Failed to fetch jobs");
       return res.json();
     },
-    enabled: activeTab === "whatjobs",
   });
 
   const { data: allJobs } = useJobs();
@@ -453,8 +452,7 @@ function UKJobsPage() {
             </button>
           </div>
 
-          {activeTab === "whatjobs" ? (
-            <>
+          <div className={activeTab === "whatjobs" ? "" : "hidden"}>
               <form onSubmit={handleWjSearch} className="mb-8" data-testid="form-whatjobs-search">
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1">
@@ -546,10 +544,10 @@ function UKJobsPage() {
                   <p className="text-muted-foreground mt-2">Try adjusting your search terms or location.</p>
                 </Card>
               )}
-            </>
-          ) : (
+          </div>
+          <div className={activeTab === "adzuna" ? "" : "hidden"}>
             <AdzunaFeedSection country="gb" currency="GBP" testPrefix="adzuna-uk" />
-          )}
+          </div>
 
           {dbJobs.length > 0 && (
             <div className="mt-16">
