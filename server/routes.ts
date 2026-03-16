@@ -554,6 +554,51 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/adzuna", async (req, res) => {
+    try {
+      const appId = process.env.ADZUNA_APP_ID;
+      const appKey = process.env.ADZUNA_APP_KEY;
+      if (!appId || !appKey) {
+        return res.status(503).json({ message: "Adzuna integration not configured" });
+      }
+
+      const allowedCountries = ["gb", "us"];
+      const country = ((req.query.country as string) || "gb").toLowerCase();
+      if (!allowedCountries.includes(country)) {
+        return res.status(400).json({ message: "Unsupported country code" });
+      }
+
+      const keyword = ((req.query.keyword as string) || "").slice(0, 200);
+      const location = ((req.query.location as string) || "").slice(0, 200);
+      const rawPage = parseInt(req.query.page as string, 10);
+      const page = isNaN(rawPage) || rawPage < 1 ? 1 : Math.min(rawPage, 1000);
+
+      const params = new URLSearchParams({
+        app_id: appId,
+        app_key: appKey,
+        results_per_page: "20",
+      });
+      if (keyword) params.set("what", keyword);
+      if (location) params.set("where", location);
+
+      const apiUrl = `https://api.adzuna.com/v1/api/jobs/${country}/search/${page}?${params.toString()}`;
+      const response = await fetch(apiUrl, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        const status = response.status;
+        return res.status(status).json({ message: "Adzuna API request failed" });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      console.error("Adzuna API proxy error:", err);
+      res.status(500).json({ message: "Failed to fetch jobs from Adzuna" });
+    }
+  });
+
   // ----- Blog Posts Routes -----
   app.get(api.blogPosts.list.path, async (req, res) => {
     const posts = await storage.getBlogPosts();

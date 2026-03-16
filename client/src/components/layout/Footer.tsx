@@ -51,9 +51,9 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-foreground mb-4">Locations</h4>
             <ul className="space-y-3">
-              <li><Link href="/jobs?country=US" className="text-sm text-muted-foreground hover:text-primary transition-colors">🇺🇸 United States</Link></li>
+              <li><Link href="/jobs/us" className="text-sm text-muted-foreground hover:text-primary transition-colors">🇺🇸 United States</Link></li>
               <li><Link href="/jobs/uk" className="text-sm text-muted-foreground hover:text-primary transition-colors">🇬🇧 United Kingdom</Link></li>
-              <li><Link href="/jobs?country=NG" className="text-sm text-muted-foreground hover:text-primary transition-colors">🇳🇬 Nigeria</Link></li>
+              <li><Link href="/jobs/nigeria" className="text-sm text-muted-foreground hover:text-primary transition-colors">🇳🇬 Nigeria</Link></li>
               <li><Link href="/jobs?remote=true" className="text-sm text-muted-foreground hover:text-primary transition-colors">🌍 Remote & Global</Link></li>
             </ul>
           </div>

@@ -93,6 +93,13 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
   - Publisher ID from WHATJOBS_PUBLISHER_ID env var (6585)
   - Input validated: page 1-10000, limit 1-50, keyword/location max 200 chars
 
+### Adzuna Feed API (UK & US)
+- GET /api/adzuna — Proxy to Adzuna job search API (country, keyword, location, page)
+  - Supported countries: gb (UK), us (US)
+  - Credentials from ADZUNA_APP_ID and ADZUNA_APP_KEY env vars
+  - Input validated: country whitelist, page 1-1000, keyword/location max 200 chars
+  - Returns { results: [...], count: number }
+
 ### Blog
 - GET /api/blog-posts, GET /api/blog-posts/:slug
 
@@ -139,6 +146,7 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 - Search Pagination (12 jobs/page with page controls): Complete
 - In-App Notification System (bell icon, unread count, notification panel): Complete
 - WhatJobs UK Feed Integration (/jobs/uk with live WhatJobs API results, search, pagination): Complete
+- Adzuna Feed Integration (UK tab on /jobs/uk, live feed on /jobs/us with search, pagination): Complete
 
 ## Additional Features
 - `client/src/hooks/use-page-meta.ts` — SEO hook for dynamic page titles + meta descriptions
