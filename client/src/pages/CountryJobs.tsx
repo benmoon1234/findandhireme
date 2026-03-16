@@ -41,6 +41,15 @@ interface WhatJobsResponse {
   data: WhatJobsResult[];
 }
 
+function handleWhatJobsTracking(onmousedown: string | undefined | null) {
+  if (!onmousedown) return;
+  const match = onmousedown.match(/pnpClick\(this,\s*'([^']+)'\)/);
+  if (match && match[1]) {
+    const img = new Image();
+    img.src = `https://uk.whatjobs.com/pnp?t=${encodeURIComponent(match[1])}`;
+  }
+}
+
 function WhatJobsJobCard({ job }: { job: WhatJobsResult }) {
   const cleanSnippet = job.snippet
     ?.replace(/<span class="highlighted">/g, "")
@@ -59,7 +68,7 @@ function WhatJobsJobCard({ job }: { job: WhatJobsResult }) {
               href={job.url}
               target="_blank"
               rel="noopener noreferrer"
-              data-tracking={job.onmousedown || undefined}
+              onMouseDown={() => handleWhatJobsTracking(job.onmousedown)}
               className="text-lg font-bold text-primary hover:underline inline-flex items-center gap-1.5"
               data-testid={`link-whatjobs-title`}
             >
