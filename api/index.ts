@@ -3,9 +3,8 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import fileUpload from "express-fileupload";
 import type { IncomingMessage, ServerResponse } from "http";
-import path from "path";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { pool, db } from "../server/db";
+import { pool } from "../server/db";
+import { setupDatabase } from "../server/setup-db";
 import { registerRoutes } from "../server/routes";
 
 declare module "express-session" {
@@ -79,7 +78,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 let initPromise: Promise<void> | null = null;
 
 async function initApp(): Promise<void> {
-  await migrate(db, { migrationsFolder: path.join(__dirname, "../migrations") });
+  await setupDatabase();
   await registerRoutes(null, app);
   app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
     const status = (err as { status?: number }).status || (err as { statusCode?: number }).statusCode || 500;
