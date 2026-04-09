@@ -1,7 +1,8 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import fileUpload from "express-fileupload";
+import type { IncomingMessage, ServerResponse } from "http";
 import { pool } from "../server/db";
 import { registerRoutes } from "../server/routes";
 
@@ -17,12 +18,16 @@ declare module "http" {
   }
 }
 
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET environment variable is required");
+}
+
 const app = express();
 app.set("trust proxy", 1);
 
 app.use(
   express.json({
-    verify: (req: any, _res: any, buf: any) => {
+    verify: (req: Request, _res: Response, buf: Buffer) => {
       req.rawBody = buf;
     },
   })
@@ -34,6 +39,8 @@ app.use(
   fileUpload({ limits: { fileSize: 10 * 1024 * 1024 }, abortOnLimit: true })
 );
 
+app.use("/uploads", express.static("uploads"));
+
 const PgSession = connectPgSimple(session);
 
 app.use(
@@ -43,7 +50,7 @@ app.use(
       tableName: "user_sessions",
       createTableIfMissing: true,
     }),
-    secret: process.env.SESSION_SECRET || "find-and-hire-me-secret-key-2024",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -55,7 +62,7 @@ app.use(
   })
 );
 
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const path = req.path;
   res.on("finish", () => {
@@ -70,9 +77,9 @@ app.use((req, res, next) => {
 let initPromise: Promise<void> | null = null;
 
 async function initApp(): Promise<void> {
-  await registerRoutes(null as any, app);
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
+  await registerRoutes(null, app);
+  app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
+    const status = (err as { status?: number }).status || (err as { statusCode?: number }).statusCode || 500;
     const message = err.message || "Internal Server Error";
     console.error("Internal Server Error:", err);
     if (res.headersSent) return next(err);
@@ -87,11 +94,10 @@ function ensureInit(): Promise<void> {
   return initPromise;
 }
 
-export default async function handler(req: any, res: any): Promise<void> {
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse
+): Promise<void> {
   await ensureInit();
-  return new Promise((resolve) => {
-    app(req, res);
-    res.on("finish", resolve);
-    res.on("close", resolve);
-  });
+  app(req, res);
 }

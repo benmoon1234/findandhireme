@@ -6,9 +6,9 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 
 export async function registerRoutes(
-  httpServer: Server,
+  httpServer: Server | null,
   app: Express
-): Promise<Server> {
+): Promise<Server | null> {
 
   await seedDatabase();
 
