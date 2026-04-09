@@ -152,3 +152,10 @@ users, job_seeker_profiles, employers, aggregator_partners, job_listings, applic
 - `client/src/hooks/use-page-meta.ts` — SEO hook for dynamic page titles + meta descriptions
 - Notifications created automatically when: application status changes (notifies seeker), new application received (notifies employer)
 - DashboardLayout includes notification bell with unread count badge and dropdown panel
+
+## Vercel Deployment
+- **`vercel.json`** — Configures build (`vite build` → `dist/public/`), routes `/api/*` to serverless function, catch-all to `index.html` for SPA
+- **`api/index.ts`** — Express serverless entry point for Vercel: sets up all middleware (session, file upload, JSON body), calls `registerRoutes`, lazy-init pattern for cold starts
+- **`tsconfig.json`** — `api/**/*` added to `include` array so path aliases resolve correctly in the serverless function
+- **Required Vercel env vars**: `DATABASE_URL` (external PostgreSQL — Neon/Supabase/Railway), `SESSION_SECRET`, `WHATJOBS_PUBLISHER_ID`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`
+- **Known limitation**: File uploads (`uploads/` directory) are ephemeral on Vercel serverless — CV files won't persist between function invocations; an object storage service (S3, Cloudinary, etc.) would be needed for persistence
