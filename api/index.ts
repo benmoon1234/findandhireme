@@ -3,7 +3,9 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import fileUpload from "express-fileupload";
 import type { IncomingMessage, ServerResponse } from "http";
-import { pool } from "../server/db";
+import path from "path";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { pool, db } from "../server/db";
 import { registerRoutes } from "../server/routes";
 
 declare module "express-session" {
@@ -64,11 +66,11 @@ app.use(
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
-  const path = req.path;
+  const reqPath = req.path;
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      console.log(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
+    if (reqPath.startsWith("/api")) {
+      console.log(`${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`);
     }
   });
   next();
@@ -77,6 +79,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 let initPromise: Promise<void> | null = null;
 
 async function initApp(): Promise<void> {
+  await migrate(db, { migrationsFolder: path.join(__dirname, "../migrations") });
   await registerRoutes(null, app);
   app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
     const status = (err as { status?: number }).status || (err as { statusCode?: number }).statusCode || 500;
